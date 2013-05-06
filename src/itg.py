@@ -38,7 +38,7 @@ def extract_itg(l1_file_name, l2_file_name,
     
     for line1 in l1_file:
         line2 = l2_file.next()
-        alignment = alignments_file.next()
+        alignment = str_to_alignments(alignments_file.next())
         l1_parse = l1_parses_file.next()        
         tree = Tree(l1_parse)
         rules = extract_rules(tree, alignment, line1, line2)
@@ -63,6 +63,28 @@ def extract_rules(tree, alignment, line1, line2, rules = None):
     rules.append(rule)
     
     return rules, (span0[0], span1[1])
+
+def inverted(alignment, span1, span2):
+    # TODO alignment should be dict mapping index in language 1 to index in language 2
+    return alignment[span1[1]] > alignment[span2[0]]
+
+def str_to_alignments(string):
+    """Parse an alignment from a string
+    
+    Keyword arguments:
+    string -- contains alignment
+    
+    Return a set of 2-tuples. First value is index of word in language 1
+           second value is index of word in language 2
+    """
+    string_list = string.strip().split()
+    alignments = {}
+    for a_str in string_list:
+        a1_str, a2_str = a_str.split('-')
+        alignments[int(a1_str)] = int(a2_str)
+
+    return alignments
+
     
 if __name__ == '__main__':
     pass
