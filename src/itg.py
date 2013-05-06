@@ -53,25 +53,16 @@ def extract_rules(tree, alignment, line1, line2, rules = None):
         rules = []
 
     if not isinstance(tree, Tree): # when at terminal node
-        return rules
+        return rules, (tree, tree+1)
 
-    inverted = False # TODO
-    rule = (tree.node, child_nodes(tree), inverted)
+    child_nodes = [child.node for child in tree]
+    (_, span0) = extract_rules(child_nodes[0], alignment, line1, line2, rules)
+    (_, span1) = extract_rules(child_nodes[1], alignment, line1, line2, rules)
+
+    rule = (tree.node, child_nodes, inverted(span0, span1))
     rules.append(rule)
     
-    for child in tree:
-        extract_rules(child, alignment, line1, line2, rules)
-
-    return rules
+    return rules, (span0[0], span1[1])
     
-def child_nodes(tree):
-    """TODO"""
-    nodes = []
-    for child in tree:
-        nodes.append(child.node)
-
-    return tuple(nodes)
-
-
 if __name__ == '__main__':
     pass
