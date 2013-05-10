@@ -95,22 +95,39 @@ def extract_rules(tree, alignment, line1, line2, rules = None):
     
     Returns list of extracted ITG rules and span of each node
     """
-    if not rules:
+    if rules is None:
         rules = []
 
     if not isinstance(tree, Tree): # when at terminal node
-        return rules, (tree, tree+1)
+        index = int(tree)
+        return rules, (index, index)
 
-    child_nodes = [child.node for child in tree]
-    (_, span0) = extract_rules(child_nodes[0], alignment, line1, line2, rules)
-    (_, span1) = extract_rules(child_nodes[1], alignment, line1, line2, rules)
+    child_nodes = get_child_nodes(tree)
+    (_, span0) = extract_rules(tree[0], alignment, line1, line2, rules)
+    inverted = False
+    if len(tree) > 1:
+        (_, span1) = extract_rules(tree[1], alignment, line1, line2, rules)
+        inverted = is_inverted(alignment, span0, span1)
 
-    rule = (tree.node, child_nodes, inverted(alignment, span0, span1))
+    rule = (tree.node, child_nodes, inverted)
     rules.append(rule)
     
-    return rules, (span0[0], span1[1])
+    if len(tree) > 1:
+        return rules, (span0[0], span1[1])
+    else:
+        return rules, span0
 
-def inverted(alignment, span1, span2):
+def get_child_nodes(tree):
+    child_nodes = []
+    for child in tree:
+        if isinstance(child, Tree):
+            child_nodes.append(child.node)
+        else:
+            child_nodes.append(child)
+    
+    return tuple(child_nodes)
+
+def is_inverted(alignment, span1, span2):
     """Checks if two spans are inverted according to an alignment
     
     Keywords arguments:
@@ -141,4 +158,9 @@ def str_to_alignments(string):
 
     
 if __name__ == '__main__':
-    pass
+    tree = Tree('(S (NP (N 0)) (VP (V 1) (NP (N 2))))')
+    alignment = {0:2, 1:1, 2:0}
+    line1 = 'man bites dog'
+    line2 = 'c b a'
+    print extract_rules(tree, alignment, line1, line2)
+
