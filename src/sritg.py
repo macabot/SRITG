@@ -82,7 +82,7 @@ def extract_itg(l1_file_name, l2_file_name,
     l1_parses_file.close()
     return itg
     
-def extract_rules(tree, alignment, line1, line2, rules = None):
+def extract_rules(tree, alignment, line1, line2, rules = None, index = 0):
     """Extract ITG rules from a parse tree
     
     Keywords arguments:
@@ -92,6 +92,7 @@ def extract_rules(tree, alignment, line1, line2, rules = None):
     line1 -- sentence
     line2 -- reordered sentence
     rules -- list of ITG rules extracted thusfar
+    index -- index of leaf to encounter next
     
     Returns list of extracted ITG rules and span of each node
     """
@@ -99,23 +100,25 @@ def extract_rules(tree, alignment, line1, line2, rules = None):
         rules = []
 
     if not isinstance(tree, Tree): # when at terminal node
-        index = int(tree)
-        return rules, (index, index)
+        return rules, (index, index), index+1
 
     child_nodes = get_child_nodes(tree)
-    (_, span0) = extract_rules(tree[0], alignment, line1, line2, rules)
+    _, span0, new_index = extract_rules(tree[0], alignment, line1, line2, 
+                                    rules, index)
+    index = new_index
     inverted = False
     if len(tree) > 1:
-        (_, span1) = extract_rules(tree[1], alignment, line1, line2, rules)
+        _, span1, index = extract_rules(tree[1], alignment, line1, line2, 
+                                        rules, index)
         inverted = is_inverted(alignment, span0, span1)
 
     rule = (tree.node, child_nodes, inverted)
     rules.append(rule)
     
     if len(tree) > 1:
-        return rules, (span0[0], span1[1])
+        return rules, (span0[0], span1[1]), index
     else:
-        return rules, span0
+        return rules, span0, index
 
 def get_child_nodes(tree):
     child_nodes = []
@@ -158,9 +161,11 @@ def str_to_alignments(string):
 
     
 if __name__ == '__main__':
-    tree = Tree('(S (NP (N 0)) (VP (V 1) (NP (N 2))))')
+    tree = Tree('(S (NP (N man)) (VP (V bites) (NP (N dog))))')
     alignment = {0:2, 1:1, 2:0}
     line1 = 'man bites dog'
     line2 = 'c b a'
-    print extract_rules(tree, alignment, line1, line2)
+    rules, _, _ = extract_rules(tree, alignment, line1, line2)
+    for rule in rules:
+        print rule
 
