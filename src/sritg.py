@@ -6,12 +6,13 @@ By Michael Cabot (6047262) and Sander Nugteren (6042023)
 
 from collections import Counter
 from nltk import Tree
+import argparse
 
 def extract_sitg(alignments_file_name, parses_file_name):
     """Extract a stochastic inversion transduction grammar (SITG)
     from the given files.
     
-    Keywords arguments:
+    Keyword arguments:
     alignments_file_name -- name of file containing alignments
         between sentences in l1_file_name and l2_file_name
     parses_file_name -- name of file containing parse trees
@@ -32,7 +33,7 @@ def count_lhs(itg):
     """Count the frequency of the left-hand-side (lhs) of the
     rules in an ITG
     
-    Keywords arguments:
+    Keyword arguments:
     itg -- Counter of itg rules
     
     Returns Counter of left-hand-side nodes"""
@@ -46,7 +47,7 @@ def extract_itg(alignments_file_name, parses_file_name):
     """Extract a inversion transduction grammar (ITG)
     from the given files.
     
-    Keywords arguments:
+    Keyword arguments:
     alignments_file_name -- name of file containing alignments
         between sentences in l1_file_name and l2_file_name
     parses_file_name -- name of file containing parse trees
@@ -60,7 +61,7 @@ def extract_itg(alignments_file_name, parses_file_name):
     parses_file = open(parses_file_name)
     
     for l1_parse in parses_file:
-        alignment = str_to_alignments(alignments_file.next())
+        alignment = str_to_alignment(alignments_file.next())
         rules, _, _ = extract_rules(Tree(l1_parse), alignment)
         for rule in rules:
             itg[rule] += 1
@@ -72,7 +73,7 @@ def extract_itg(alignments_file_name, parses_file_name):
 def extract_rules(tree, alignment, rules = None, index = 0):
     """Extract ITG rules from a parse tree
     
-    Keywords arguments:
+    Keyword arguments:
     tree -- nltk.Tree object
     alignment -- dictionary mapping index of words in a sentence
         to index of corresponding words in reordered sentence
@@ -104,6 +105,12 @@ def extract_rules(tree, alignment, rules = None, index = 0):
         return rules, span0, index
 
 def get_child_nodes(tree):
+    """Gets the nodes of the children of the given tree
+    
+    Keyword arguments:
+    tree -- nltk.Tree
+    
+    Returns nodes of the tree's children"""
     child_nodes = []
     for child in tree:
         if isinstance(child, Tree):
@@ -116,7 +123,7 @@ def get_child_nodes(tree):
 def is_inverted(alignment, span1, span2):
     """Checks if two spans are inverted according to an alignment
     
-    Keywords arguments:
+    Keyword arguments:
     alignment -- dictionary mapping index of words from line1
         to index of corresponding word in line2
     span1 -- range of left constituent
@@ -125,7 +132,7 @@ def is_inverted(alignment, span1, span2):
     Returns True if the spans are inverted according to the alignment"""
     return alignment[span1[1]] > alignment[span2[0]]
 
-def str_to_alignments(string):
+def str_to_alignment(string):
     """Parse an alignment from a string
     
     Keyword arguments:
@@ -143,8 +150,18 @@ def str_to_alignments(string):
     return alignments
 
 def main():
-    alignments_file_name = '../tmp/test_alignments.txt'
-    parses_file_name = '../tmp/test_parses.txt'
+    """Read command line arguments and perform corresponding action"""
+    arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument("-a", "--alignments", required=True,
+        help="File containing alignments")
+    arg_parser.add_argument("-p", "--parses", required=True,
+        help="File containing sentence parses")
+    #arg_parser.add_argument("-o", "--output", required=True,
+    #    help="File name of output")
+    
+    args = arg_parser.parse_args()
+    alignments_file_name = args.alignments
+    parses_file_name = args.parses
     sitg = extract_sitg(alignments_file_name, parses_file_name)
     for rule, prob in sitg.iteritems():
         print '%s - %s' % (rule, prob)
