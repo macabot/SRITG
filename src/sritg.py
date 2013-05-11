@@ -7,24 +7,20 @@ By Michael Cabot (6047262) and Sander Nugteren (6042023)
 from collections import Counter
 from nltk import Tree
 
-def extract_sitg(l1_file_name, l2_file_name, 
-        alignments_file_name, l1_parses_file_name):
+def extract_sitg(alignments_file_name, parses_file_name):
     """Extract a stochastic inversion transduction grammar (SITG)
     from the given files.
     
     Keywords arguments:
-    l1_file_name -- name of file containing sentences
-    l2_file_name -- name of file containing reordered sentences
     alignments_file_name -- name of file containing alignments
         between sentences in l1_file_name and l2_file_name
-    l1_parses_file_name -- name of file containing parse trees
+    parses_file_name -- name of file containing parse trees
         of the sentences in l1_file_name
         
     Returns dictionary mapping ITG rules to their probability
     Each ITG rule is represented as the 3-tuple: 
     (lhs, rhs, inverted)"""
-    itg = extract_itg(l1_file_name, l2_file_name, 
-            alignments_file_name, l1_parses_file_name)
+    itg = extract_itg(alignments_file_name, parses_file_name)
     lhs_count = count_lhs(itg)
     sitg = {}
     for rule, rule_freq in itg.iteritems():
@@ -46,51 +42,40 @@ def count_lhs(itg):
 
     return lhs
 
-def extract_itg(l1_file_name, l2_file_name, 
-        alignments_file_name, l1_parses_file_name):
+def extract_itg(alignments_file_name, parses_file_name):
     """Extract a inversion transduction grammar (ITG)
     from the given files.
     
     Keywords arguments:
-    l1_file_name -- name of file containing sentences
-    l2_file_name -- name of file containing reordered sentences
     alignments_file_name -- name of file containing alignments
         between sentences in l1_file_name and l2_file_name
-    l1_parses_file_name -- name of file containing parse trees
+    parses_file_name -- name of file containing parse trees
         of the sentences in l1_file_name
         
     Returns a Counter of ITG rules
     Each ITG rule is represented as the 3-tuple: 
     (lhs, rhs, inverted)"""
     itg = Counter()
-    l1_file = open(l1_file_name)
-    l2_file = open(l2_file_name)
     alignments_file = open(alignments_file_name)
-    l1_parses_file = open(l1_parses_file_name)
+    parses_file = open(parses_file_name)
     
-    for line1 in l1_file:
-        line2 = l2_file.next()
+    for l1_parse in parses_file:
         alignment = str_to_alignments(alignments_file.next())
-        l1_parse = l1_parses_file.next()
-        rules = extract_rules(Tree(l1_parse), alignment, line1, line2)
+        rules, _, _ = extract_rules(Tree(l1_parse), alignment)
         for rule in rules:
             itg[rule] += 1
 
-    l1_file.close()
-    l2_file.close()
     alignments_file.close()
-    l1_parses_file.close()
+    parses_file.close()
     return itg
     
-def extract_rules(tree, alignment, line1, line2, rules = None, index = 0):
+def extract_rules(tree, alignment, rules = None, index = 0):
     """Extract ITG rules from a parse tree
     
     Keywords arguments:
     tree -- nltk.Tree object
-    alignment -- dictionary mapping index of words from line1
-        to index of corresponding word in line2
-    line1 -- sentence
-    line2 -- reordered sentence
+    alignment -- dictionary mapping index of words in a sentence
+        to index of corresponding words in reordered sentence
     rules -- list of ITG rules extracted thusfar
     index -- index of leaf to encounter next
     
@@ -103,13 +88,11 @@ def extract_rules(tree, alignment, line1, line2, rules = None, index = 0):
         return rules, (index, index), index+1
 
     child_nodes = get_child_nodes(tree)
-    _, span0, new_index = extract_rules(tree[0], alignment, line1, line2, 
-                                    rules, index)
+    _, span0, new_index = extract_rules(tree[0], alignment, rules, index)
     index = new_index
     inverted = False
     if len(tree) > 1:
-        _, span1, index = extract_rules(tree[1], alignment, line1, line2, 
-                                        rules, index)
+        _, span1, index = extract_rules(tree[1], alignment, rules, index)
         inverted = is_inverted(alignment, span0, span1)
 
     rule = (tree.node, child_nodes, inverted)
@@ -159,13 +142,13 @@ def str_to_alignments(string):
 
     return alignments
 
-    
-if __name__ == '__main__':
-    tree = Tree('(S (NP (N man)) (VP (V bites) (NP (N dog))))')
-    alignment = {0:2, 1:1, 2:0}
-    line1 = 'man bites dog'
-    line2 = 'c b a'
-    rules, _, _ = extract_rules(tree, alignment, line1, line2)
-    for rule in rules:
-        print rule
+def main():
+    alignments_file_name = '../tmp/test_alignments.txt'
+    parses_file_name = '../tmp/test_parses.txt'
+    sitg = extract_sitg(alignments_file_name, parses_file_name)
+    for rule, prob in sitg.iteritems():
+        print '%s - %s' % (rule, prob)
 
+
+if __name__ == '__main__':
+    main()
