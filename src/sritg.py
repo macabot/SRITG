@@ -258,7 +258,9 @@ def main():
     args = arg_parser.parse_args()
     # either create (S)ITG or reorder sentences
     if (bool(args.alignments) and bool(args.parses)) is bool(args.reordering):
-        arg_parser.error('TODO invalid arguments')
+        arg_parser.error('Invalid arguments: either construct a (S)ITG with\
+            alignments (-a) and parses (-p) or reorder sentences according\
+            to their itg-parses (-r).')
 
     output_file_name = args.output
     inv_extension = '-%s' % args.inv_extension
