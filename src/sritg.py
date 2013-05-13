@@ -218,35 +218,66 @@ def tree_to_reordered_sentence(tree, inv_extension):
             return '%s %s' % (right_string, left_string)
         else:
             return '%s %s' % (left_string, right_string)
+
+def reorder(reordering_file_name, output_file_name, inv_extension):
+    """Reorder all sentences according to their itg parses
     
+    Keyword arguments:
+    reordering_file_name -- File containing ITG parses
+    output_file_name -- output file for reordered sentences
+    inv_extension -- extension of a node denoting the lhs of an inverted rule"""
+    reordering_file = open(reordering_file_name, 'r')
+    out = open(output_file_name, 'w')
+    for line in reordering_file:
+        line = line.strip()
+        tree = Tree(line)
+        reordered_sentence = tree_to_reordered_sentence(tree, inv_extension)
+        out.write('%s\n' % reordered_sentence)
+
+    reordering_file.close()
+    out.close()
 
 def main():
     """Read command line arguments and perform corresponding action"""
     arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument("-a", "--alignments", required=True,
-        help="File containing alignments")
-    arg_parser.add_argument("-p", "--parses", required=True,
-        help="File containing sentence parses")
+    arg_parser.add_argument("-a", "--alignments",
+        help="File containing alignments.")
+    arg_parser.add_argument("-p", "--parses",
+        help="File containing sentence parses.")
     arg_parser.add_argument("-s", "--stochastic", action='store_true',
-        help="Calculate the probabilities of the itg rules")
+        help="Calculate the probabilities of the itg rules.")
+    arg_parser.add_argument("-r", "--reordering",
+        help="File containing sentence parses that need to be reordered.")
     arg_parser.add_argument("-o", "--output", required=True,
-        help="Prefix of file names for Bitpar output")
+        help="When constructing (S)ITG: Prefix of file names for Bitpar output.\
+            When reordering: file name of reordered sentences.")
+    arg_parser.add_argument("-i", "--inv_extension", default="I",
+        help="Extension of a node marking it as the lhs of an inverted rule. \
+        Node will be marked as <node>-<extension>")
     
     args = arg_parser.parse_args()
-    alignments_file_name = args.alignments
-    parses_file_name = args.parses
-    stochastic = args.stochastic
-    prefix = args.output
-    inv_extension = '-I'
-    
-    if stochastic:
-        grammar = extract_sitg(alignments_file_name, parses_file_name,
-            inv_extension)
-    else:
-        grammar = extract_itg(alignments_file_name, parses_file_name,
-            inv_extension)
+    # either create (S)ITG or reorder sentences
+    if (bool(args.alignments) and bool(args.parses)) is bool(args.reordering):
+        arg_parser.error('TODO invalid arguments')
 
-    grammar_to_bitpar_files(prefix, grammar)
+    output_file_name = args.output
+    inv_extension = '-%s' % args.inv_extension
+    if args.reordering:
+        reordering_file_name = args.reordering
+        reorder(reordering_file_name, output_file_name, inv_extension)
+    else:
+        alignments_file_name = args.alignments
+        parses_file_name = args.parses
+        stochastic = args.stochastic
+        if stochastic:
+            grammar = extract_sitg(alignments_file_name, parses_file_name,
+                inv_extension)
+        else:
+            grammar = extract_itg(alignments_file_name, parses_file_name,
+                inv_extension)
+
+        grammar_to_bitpar_files(output_file_name, grammar)
+
 
 if __name__ == '__main__':
     main()
