@@ -8,7 +8,7 @@ from collections import Counter
 from nltk import Tree
 import argparse
 
-def extract_sitg(alignments_file_name, parses_file_name):
+def extract_sitg(alignments_file_name, parses_file_name, inv_extension):
     """Extract a stochastic inversion transduction grammar (SITG)
     from the given files.
     
@@ -21,7 +21,7 @@ def extract_sitg(alignments_file_name, parses_file_name):
     Returns dictionary mapping ITG rules to their probability
     Each ITG rule is represented as the 3-tuple: 
     (lhs, rhs, inverted)"""
-    itg = extract_itg(alignments_file_name, parses_file_name)
+    itg = extract_itg(alignments_file_name, parses_file_name, inv_extension)
     lhs_count = count_lhs(itg)
     sitg = {}
     for rule, rule_freq in itg.iteritems():
@@ -43,7 +43,7 @@ def count_lhs(itg):
 
     return lhs
 
-def extract_itg(alignments_file_name, parses_file_name):
+def extract_itg(alignments_file_name, parses_file_name, inv_extension):
     """Extract a inversion transduction grammar (ITG)
     from the given files.
     
@@ -62,7 +62,7 @@ def extract_itg(alignments_file_name, parses_file_name):
     
     for l1_parse in parses_file:
         alignment = str_to_alignment(alignments_file.next())
-        rules = extract_rules(Tree(l1_parse), alignment)[0]
+        rules = extract_rules(Tree(l1_parse), alignment, inv_extension)[0]
         for rule in rules:
             itg[rule] += 1
 
@@ -70,7 +70,7 @@ def extract_itg(alignments_file_name, parses_file_name):
     parses_file.close()
     return itg
     
-def extract_rules(tree, alignment, rules = None, index = 0):
+def extract_rules(tree, alignment, inv_extension, rules = None, index = 0):
     """Extract ITG rules from a parse tree
     
     Keyword arguments:
@@ -82,7 +82,6 @@ def extract_rules(tree, alignment, rules = None, index = 0):
     
     Returns list of extracted ITG rules and span of each node
     """
-    inv_extension = '-I'
     if rules is None:
         rules = []
 
@@ -91,14 +90,14 @@ def extract_rules(tree, alignment, rules = None, index = 0):
 
     child_nodes = get_child_nodes(tree)
     _, span0, index, child0_inverted, terminal = extract_rules(tree[0], 
-        alignment, rules, index)
+        alignment, inv_extension, rules, index)
     if child0_inverted:
         child_nodes[0] += inv_extension
 
     inverted = False
     if len(tree) > 1:
         _, span1, index, child1_inverted, _ = extract_rules(tree[1], alignment, 
-            rules, index)
+            inv_extension, rules, index)
         if child1_inverted:
             child_nodes[1] += inv_extension
 
@@ -161,6 +160,13 @@ def str_to_alignment(string):
     return alignments
 
 def remove_lexicon(grammar):
+    """Removes all lexical rules from a grammar and puts them in new dictionary
+    mapping word to a list of lhs and frequencies (both are strings)
+    
+    Keyword arguments:
+    grammar -- Counter of rules: (lsh, rhs, interted, terminal)
+    
+    Return new grammar and lexical rules"""
     new_grammar = {}
     lexicon = {}
     for rule, freq in grammar.iteritems():
@@ -172,6 +178,14 @@ def remove_lexicon(grammar):
     return new_grammar, lexicon
 
 def grammar_to_bitpar_files(prefix, grammar):
+    """Creates a grammar and lexicon file from an (s)itg. 
+    Grammar file is formatted: <frequency> <lhs> <rhs> 
+    Lexicon file is formatted: <word> <lhs1> <freq1> <lhs2> <freq2> ...
+    
+    Keyword arguments:
+    prefix -- prefix of output file names. Grammar file and lexicon file will
+        get the extension .grammar and .lexicon respectively.
+    grammar -- dictionary mapping itg-rules to their frequency or probability"""
     grammar, lexicon = remove_lexicon(grammar)
     grammar_out = open('%s.grammar'%prefix, 'w')
     lexicon_out = open('%s.lexicon'%prefix, 'w')
@@ -183,6 +197,16 @@ def grammar_to_bitpar_files(prefix, grammar):
 
     grammar_out.close()
     lexicon_out.close()
+
+def tree_to_reordered_sentence(tree):
+    """Reorders a sentences according to its itg-tree
+    
+    Keyword arguments:
+    tree -- nltk tree
+    
+    Returns reordered string"""
+    pass 
+    
 
 def main():
     """Read command line arguments and perform corresponding action"""
@@ -201,11 +225,14 @@ def main():
     parses_file_name = args.parses
     stochastic = args.stochastic
     prefix = args.output
+    inv_extension = '-I'
     
     if stochastic:
-        grammar = extract_sitg(alignments_file_name, parses_file_name)
+        grammar = extract_sitg(alignments_file_name, parses_file_name,
+            inv_extension)
     else:
-        grammar = extract_itg(alignments_file_name, parses_file_name)
+        grammar = extract_itg(alignments_file_name, parses_file_name,
+            inv_extension)
 
     grammar_to_bitpar_files(prefix, grammar)
 
