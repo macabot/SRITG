@@ -7,6 +7,7 @@ By Michael Cabot (6047262) and Sander Nugteren (6042023)
 from collections import Counter
 from nltk import Tree
 import argparse
+import re
 
 def extract_sitg(alignments_file_name, parses_file_name, inv_extension):
     """Extract a stochastic inversion transduction grammar (SITG)
@@ -198,14 +199,25 @@ def grammar_to_bitpar_files(prefix, grammar):
     grammar_out.close()
     lexicon_out.close()
 
-def tree_to_reordered_sentence(tree):
+def tree_to_reordered_sentence(tree, inv_extension):
     """Reorders a sentences according to its itg-tree
     
     Keyword arguments:
     tree -- nltk tree
     
     Returns reordered string"""
-    pass 
+    pattern = '%s$' % inv_extension # match at end of string
+    if not isinstance(tree, Tree): # if terminal node
+        return tree
+    elif len(tree)==1: # if unary rule
+        return tree_to_reordered_sentence(tree[0], inv_extension)
+    else:
+        left_string = tree_to_reordered_sentence(tree[0], inv_extension)
+        right_string = tree_to_reordered_sentence(tree[1], inv_extension)
+        if re.search(pattern, tree.node): # if inverted rule
+            return '%s %s' % (right_string, left_string)
+        else:
+            return '%s %s' % (left_string, right_string)
     
 
 def main():
