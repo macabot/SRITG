@@ -62,7 +62,7 @@ def extract_itg(alignments_file_name, parses_file_name):
     
     for l1_parse in parses_file:
         alignment = str_to_alignment(alignments_file.next())
-        rules, _, _ = extract_rules(Tree(l1_parse), alignment)
+        rules = extract_rules(Tree(l1_parse), alignment)[0]
         for rule in rules:
             itg[rule] += 1
 
@@ -82,27 +82,38 @@ def extract_rules(tree, alignment, rules = None, index = 0):
     
     Returns list of extracted ITG rules and span of each node
     """
+    inv_extension = '-I'
     if rules is None:
         rules = []
 
     if not isinstance(tree, Tree): # when at terminal node
-        return rules, (index, index), index+1
+        return rules, (index, index), index+1, False
 
     child_nodes = get_child_nodes(tree)
-    _, span0, new_index = extract_rules(tree[0], alignment, rules, index)
-    index = new_index
+    _, span0, index, child0_inverted = extract_rules(tree[0], alignment, 
+                                                         rules, index)
+    if child0_inverted:
+        child_nodes[0] += inv_extension
+
     inverted = False
     if len(tree) > 1:
-        _, span1, index = extract_rules(tree[1], alignment, rules, index)
+        _, span1, index, child1_inverted = extract_rules(tree[1], alignment, 
+                                                         rules, index)
+        if child1_inverted:
+            child_nodes[1] += inv_extension
+
         inverted = is_inverted(alignment, span0, span1)
 
-    rule = (tree.node, child_nodes, inverted)
+    if inverted:
+        tree.node += inv_extension # annotate inverted rules
+
+    rule = (tree.node, tuple(child_nodes), inverted)
     rules.append(rule)
     
     if len(tree) > 1:
-        return rules, (span0[0], span1[1]), index
+        return rules, (span0[0], span1[1]), index, inverted
     else:
-        return rules, span0, index
+        return rules, span0, index, inverted
 
 def get_child_nodes(tree):
     """Gets the nodes of the children of the given tree
@@ -118,7 +129,7 @@ def get_child_nodes(tree):
         else:
             child_nodes.append(child)
     
-    return tuple(child_nodes)
+    return child_nodes
 
 def is_inverted(alignment, span1, span2):
     """Checks if two spans are inverted according to an alignment
@@ -156,15 +167,24 @@ def main():
         help="File containing alignments")
     arg_parser.add_argument("-p", "--parses", required=True,
         help="File containing sentence parses")
+    arg_parser.add_argument("-s", "--stochastic", action='store_true',
+        help="Calculate the probabilities of the itg rules")
     #arg_parser.add_argument("-o", "--output", required=True,
     #    help="File name of output")
     
     args = arg_parser.parse_args()
     alignments_file_name = args.alignments
     parses_file_name = args.parses
-    sitg = extract_sitg(alignments_file_name, parses_file_name)
-    for rule, prob in sitg.iteritems():
-        print '%s - %s' % (rule, prob)
+    stochastic = args.stochastic
+    
+    if stochastic:
+        sitg = extract_sitg(alignments_file_name, parses_file_name)
+        for rule, prob in sitg.iteritems():
+            print '%s - %s' % (rule, prob)
+    else:
+        itg = extract_itg(alignments_file_name, parses_file_name)
+        for rule, freq in itg.iteritems():
+            print '%s - %s' % (rule, freq)
 
 
 if __name__ == '__main__':
