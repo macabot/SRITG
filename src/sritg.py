@@ -9,6 +9,7 @@ from nltk import Tree
 import argparse
 import re
 
+
 def extract_sitg(alignments_file_name, parses_file_name, inv_extension):
     """Extract a stochastic inversion transduction grammar (SITG)
     from the given files.
@@ -62,58 +63,151 @@ def extract_itg(alignments_file_name, parses_file_name, inv_extension):
     parses_file = open(parses_file_name)
     
     for l1_parse in parses_file:
-        alignment = str_to_alignment(alignments_file.next())
-        rules = extract_rules(Tree(l1_parse), alignment, inv_extension)[0]
+        reordered_indexes = str_to_reordered_indexes(alignments_file.next())
+        parse_forest = generate_forest(Tree(l1_parse), 
+            reordered_indexes, inv_extension)
+        rules = extract_rules(parse_forest)
         for rule in rules:
             itg[rule] += 1
 
     alignments_file.close()
     parses_file.close()
     return itg
+
+def str_to_reordered_indexes(alignment_str):
+    """Return the indexes of the word in the reordered sentence."""
+    string_list = alignment_str.strip().split()
+    return [int(pair.split('-')[1]) for pair in string_list]
     
-def extract_rules(tree, alignment, inv_extension, rules = None, index = 0):
-    """Extract ITG rules from a parse tree
+def generate_forest(tree, reordered_indexes, inv_extension):
+    """Generate a parse forest containing all valid binary trees"""
+    parse_forest = {} # condenses all possible parse tree
+    words = tree.leaves()
+    # initialize
+    syntax_chart, _, _ = initialize_syntax_chart(tree)
+    for i, word in enumerate(words):
+        pos_tag = get_syntax_node(syntax_chart, (i, i+1))
+        if pos_tag == None:
+            continue
+
+        parse_forest[(i, i+1)] = (pos_tag, [(word, None, i+1)])
+            
+    # expand
+    for span_size in xrange(2, len(words)+1): # loop over spans sizes
+        for i in xrange(len(words)-span_size+1):
+            j = i+span_size
+            span = (i, j)
+            if not is_valid_phrase(span, reordered_indexes):
+                continue
+
+            for k in xrange(i+1, j): # k splits span [i,j) in [i,k), [k,j)
+                left, _ = parse_forest.get((i, k), (None, []))
+                right, _ = parse_forest.get((k, j), (None, []))
+                if not left or not right:
+                    continue
+
+                if span in parse_forest:
+                    lhs, rhs_list = parse_forest[span]
+                    rhs_list.append((left, right, k))
+                    parse_forest[span] = (lhs, rhs_list)
+                else:
+                    lhs = get_syntax_node(syntax_chart, span)
+                    if lhs == None:
+                        continue
+                    if is_inverted(reordered_indexes, (i, k), (k, j)):
+                        lhs += inv_extension
+
+                    parse_forest[span] = (lhs, [(left, right, k)])
+    
+    return parse_forest
+
+def initialize_syntax_chart(tree, chart = None, index = 0):
+    """Initialize a chart with the syntax-labeled nodes in the given tree."""
+    if chart == None:
+        chart = {}
+
+    if not isinstance(tree, Tree):
+        return chart, (index, index + 1), index+1
+
+    min_span, max_span = None, None
+    for i, child in enumerate(tree):
+        chart, child_span, index = initialize_syntax_chart(child, chart, index)
+        if i == 0:  # left most child
+            min_span = child_span[0]
+        if i == len(tree)-1:    # right most child
+            max_span = child_span[1]
+    
+    span = (min_span, max_span)
+    chart[span] = tree.node
+    return chart, span, index
+
+def get_syntax_node(syntax_chart, span):
+    """Read or create the node for the given span from the syntax chart. If the
+    node is created then it is also added to the syntax chart."""
+    if span in syntax_chart:
+        return syntax_chart[span]
+
+    return 'X' # TODO implement
+    
+    
+def extract_rules(parse_forest):
+    """Extract all rules in the parse forest."""
+    return [] # TODO implement  # extract all rules
+
+def is_valid_phrase(span, reordered_indexes):
+    """Check whether a span is contigious"""
+    index_slice = reordered_indexes[span[0]:span[1]]
+    return len(index_slice)-1 == max(index_slice) - min(index_slice)
+
+def phrase_alignment_expansions(phrase_alignments, max_length = float('inf')):
+    # TODO fix
+    """For each language find the words that are not covered with the given
+    phrase alignment.
+    E.g. phrase_alignments = [(0,0), (2,0)]
+    returns [1], []
+    because index 1 in sentence 1 is not covered.
     
     Keyword arguments:
-    tree -- nltk.Tree object
-    alignment -- dictionary mapping index of words in a sentence
-        to index of corresponding words in reordered sentence
-    rules -- list of ITG rules extracted thusfar
-    index -- index of leaf to encounter next
+    phrase_alignments -- list of 2-tuples denoting the alignment between words
+    max_length -- maximum length of a phrase alignment
     
-    Returns list of extracted ITG rules and span of each node
+    Returns 2 lists of indexes that are not covered
     """
-    if rules is None:
-        rules = []
+    min1, min2, max1, max2 = phrase_range(phrase_alignments)
+    if max1-min1+1 > max_length or max2-min2+1 > max_length:
+        return [], []
 
-    if not isinstance(tree, Tree): # when at terminal node
-        return rules, (index, index), index+1, False, True
+    range1 = range(min1, max1+1)
+    range2 = range(min2, max2+1)
+    for a1, a2 in phrase_alignments:
+        if a1 in range1:
+            range1.remove(a1)
+        if a2 in range2:
+            range2.remove(a2)
 
-    child_nodes = get_child_nodes(tree)
-    _, span0, index, child0_inverted, terminal = extract_rules(tree[0], 
-        alignment, inv_extension, rules, index)
-    if child0_inverted:
-        child_nodes[0] += inv_extension
+    return range1, range2
 
-    inverted = False
-    if len(tree) > 1:
-        _, span1, index, child1_inverted, _ = extract_rules(tree[1], alignment, 
-            inv_extension, rules, index)
-        if child1_inverted:
-            child_nodes[1] += inv_extension
-
-        inverted = is_inverted(alignment, span0, span1)
-
-    if inverted:
-        tree.node += inv_extension # annotate inverted rules
-
-    rule = (tree.node, tuple(child_nodes), inverted, terminal)
-    rules.append(rule)
+def phrase_range(phrase_alignments):
+    """Calcualte the range of a phrase alignment
     
-    if len(tree) > 1:
-        return rules, (span0[0], span1[1]), index, inverted, False
-    else:
-        return rules, span0, index, inverted, False
+    Keyword arguments:
+    phrase_alignments -- dictionary mapping the alignment between words
+    
+    Returns a 4-tuples denoting the range of the phrase alignment
+    """
+    min1 = min2 = float('inf')
+    max1 = max2 = float('-inf')
+    for a1, a2 in phrase_alignments.iteritems():
+        if a1 < min1:
+            min1 = a1
+        if a1 > max1:
+            max1 = a1
+        if a2 < min2:
+            min2 = a2
+        if a2 > max2:
+            max2 = a2
+
+    return min1, min2, max1, max2
 
 def get_child_nodes(tree):
     """Gets the nodes of the children of the given tree
@@ -131,7 +225,7 @@ def get_child_nodes(tree):
     
     return child_nodes
 
-def is_inverted(alignment, span1, span2):
+def is_inverted(reordered_indexes, span1, span2):
     """Checks if two spans are inverted according to an alignment
     
     Keyword arguments:
@@ -141,7 +235,7 @@ def is_inverted(alignment, span1, span2):
     span2 -- range of right constituent
     
     Returns True if the spans are inverted according to the alignment"""
-    return alignment[span1[1]] > alignment[span2[0]]
+    return reordered_indexes[span1[1]-1] > reordered_indexes[span2[0]]
 
 def str_to_alignment(string):
     """Parse an alignment from a string
@@ -206,7 +300,7 @@ def tree_to_reordered_sentence(tree, inv_extension):
     tree -- nltk tree
     
     Returns reordered string"""
-    pattern = '%s$' % inv_extension # match at end of string
+    pattern = '%s' % inv_extension # match if contains string
     if not isinstance(tree, Tree): # if terminal node
         return tree
     elif len(tree)==1: # if unary rule
@@ -239,7 +333,8 @@ def reorder(reordering_file_name, output_file_name, inv_extension):
 
 def main():
     """Read command line arguments and perform corresponding action"""
-    arg_parser = argparse.ArgumentParser()
+    arg_parser = argparse.ArgumentParser(description='Create an (S)ITG or \
+        reorder sentences.')
     arg_parser.add_argument("-a", "--alignments",
         help="File containing alignments.")
     arg_parser.add_argument("-p", "--parses",
@@ -280,6 +375,15 @@ def main():
 
         grammar_to_bitpar_files(output_file_name, grammar)
 
+def test():
+    tree = Tree('(S (NP (N man)) (VP (V bites) (NP (N dog))))')
+    reordered_index = [2, 1, 0]
+    inv_extension = '-I'
+    parse_forest = generate_forest(tree, reordered_index, inv_extension)
+    for k, v in parse_forest.iteritems():
+        print k, v
+    
 
 if __name__ == '__main__':
-    main()
+    #main()
+    test()
