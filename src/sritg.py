@@ -143,7 +143,11 @@ def initialize_syntax_chart(tree, chart = None, index = 0):
             max_span = child_span[1]
     
     span = (min_span, max_span)
-    chart[span] = tree.node
+    if span in chart:
+        chart[span] = '%s:%s' % (chart[span], tree.node)
+    else:
+        chart[span] = tree.node
+
     return chart, span, index
 
 def get_syntax_node(syntax_chart, span):
