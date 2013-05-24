@@ -85,7 +85,7 @@ def extract_itg(alignments_file_name, parses_file_name, inv_extension):
             binary_itg[rule] += 1
 
         for rule in unary_rules:
-            unary_itg[rules] += 1
+            unary_itg[rule] += 1
 
     alignments_file.close()
     parses_file.close()
@@ -190,6 +190,7 @@ def get_syntax_nodes(syntax_chart, span, k):
                         for lp in syntax_chart[left_parents]:
                             new_node = ls + '\\' + lp
                             syntax_chart.setdefault(span, []).append(new_node)
+
     return syntax_chart.get(span, [])    
     
 def extract_rules(parse_forest, words):
@@ -217,72 +218,6 @@ def is_valid_phrase(span, reordered_indexes):
     index_slice = reordered_indexes[span[0]:span[1]]
     return len(index_slice)-1 == max(index_slice) - min(index_slice)
 
-def phrase_alignment_expansions(phrase_alignments, max_length = float('inf')):
-    # TODO fix
-    """For each language find the words that are not covered with the given
-    phrase alignment.
-    E.g. phrase_alignments = [(0,0), (2,0)]
-    returns [1], []
-    because index 1 in sentence 1 is not covered.
-    
-    Keyword arguments:
-    phrase_alignments -- list of 2-tuples denoting the alignment between words
-    max_length -- maximum length of a phrase alignment
-    
-    Returns 2 lists of indexes that are not covered
-    """
-    min1, min2, max1, max2 = phrase_range(phrase_alignments)
-    if max1-min1+1 > max_length or max2-min2+1 > max_length:
-        return [], []
-
-    range1 = range(min1, max1+1)
-    range2 = range(min2, max2+1)
-    for a1, a2 in phrase_alignments:
-        if a1 in range1:
-            range1.remove(a1)
-        if a2 in range2:
-            range2.remove(a2)
-
-    return range1, range2
-
-def phrase_range(phrase_alignments):
-    """Calcualte the range of a phrase alignment
-    
-    Keyword arguments:
-    phrase_alignments -- dictionary mapping the alignment between words
-    
-    Returns a 4-tuples denoting the range of the phrase alignment
-    """
-    min1 = min2 = float('inf')
-    max1 = max2 = float('-inf')
-    for a1, a2 in phrase_alignments.iteritems():
-        if a1 < min1:
-            min1 = a1
-        if a1 > max1:
-            max1 = a1
-        if a2 < min2:
-            min2 = a2
-        if a2 > max2:
-            max2 = a2
-
-    return min1, min2, max1, max2
-
-def get_child_nodes(tree):
-    """Gets the nodes of the children of the given tree
-    
-    Keyword arguments:
-    tree -- nltk.Tree
-    
-    Returns nodes of the tree's children"""
-    child_nodes = []
-    for child in tree:
-        if isinstance(child, Tree):
-            child_nodes.append(child.node)
-        else:
-            child_nodes.append(child)
-    
-    return child_nodes
-
 def is_inverted(reordered_indexes, span1, span2):
     """Checks if two spans are inverted according to an alignment
     
@@ -294,41 +229,6 @@ def is_inverted(reordered_indexes, span1, span2):
     
     Returns True if the spans are inverted according to the alignment"""
     return reordered_indexes[span1[1]-1] > reordered_indexes[span2[0]]
-
-def str_to_alignment(string):
-    """Parse an alignment from a string
-    
-    Keyword arguments:
-    string -- contains alignment
-    
-    Return a dictionary mapping the index of a word in language 1
-        to the index of the corresponding word in language 2
-    """
-    string_list = string.strip().split()
-    alignments = {}
-    for a_str in string_list:
-        a1_str, a2_str = a_str.split('-')
-        alignments[int(a1_str)] = int(a2_str)
-
-    return alignments
-
-def remove_lexicon(grammar):
-    """Removes all lexical rules from a grammar and puts them in new dictionary
-    mapping word to a list of lhs and frequencies (both are strings)
-    
-    Keyword arguments:
-    grammar -- Counter of rules: (lsh, rhs, interted, terminal)
-    
-    Return new grammar and lexical rules"""
-    new_grammar = {}
-    lexicon = {}
-    for rule, freq in grammar.iteritems():
-        if rule[3]: # if lexical rule
-            lexicon.setdefault(rule[1][0], []).extend([rule[0], str(freq)])
-        else:
-            new_grammar[rule] = freq
-
-    return new_grammar, lexicon
 
 def grammar_to_bitpar_files(prefix, grammar, lexicon):
     """Creates a grammar and lexicon file from an (s)itg. 
@@ -435,27 +335,6 @@ def main():
 
         grammar_to_bitpar_files(output_file_name, binary, unary)
 
-def test():
-    '''
-    d = {}
-    d[(0,1)] = ['A']
-    d[(1,2)] = ['B']
-    print get_syntax_nodes(d, (0,2), 1)[0]
-    d[(2,3)] = ['C']
-    d[(3,4)] = ['D']
-    d[(0,4)] = ['S']
-    print get_syntax_nodes(d, (0,3), 2)[0]
-    '''
-    d = {}
-    d[(3,4)] = ['A']
-    d[(2,3)] = ['B']
-    print get_syntax_nodes(d, (2,4), 3)[0]
-    d[(1,2)] = ['C']
-    d[(0,1)] = ['D', 'E']
-    d[(0,4)] = ['S']
-    print get_syntax_nodes(d, (1,4), 2)
-
 
 if __name__ == '__main__':
-    #main()
-    test()
+    main()
