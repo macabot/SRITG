@@ -1,5 +1,10 @@
 # extract ITG 
-
+# TODO can a chart position contain multiple nodes?
+#   1  2  3  4
+# 0 a  e  a+f or e+c?
+# 1    b  f
+# 2       c
+# 3          d
 """
 By Michael Cabot (6047262) and Sander Nugteren (6042023)
 """
