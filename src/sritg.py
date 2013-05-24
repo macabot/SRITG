@@ -77,8 +77,19 @@ def extract_itg(alignments_file_name, parses_file_name, inv_extension):
     for l1_parse in parses_file:
         reordered_indexes = str_to_reordered_indexes(alignments_file.next())
         parse_tree = Tree(l1_parse)
-        parse_forest = generate_forest(parse_tree, 
-            reordered_indexes, inv_extension)
+        try: # TODO remove
+            parse_forest = generate_forest(parse_tree, 
+                reordered_indexes, inv_extension)
+        except:
+            error_log = open('error.log', 'a')
+            error_log.write('%s\n' % parse_tree.pprint(10000000000000000000000))
+            error_log.write('%s\n' % reordered_indexes)
+            error_log.close()
+            print 'Error in parse_forest/3 where: \
+                \ntree = %s\nreordered = %s' % (parse_tree, reordered_indexes)
+            print 'tree and reordered are written to error.log'
+            raise
+
         binary_rules, unary_rules = extract_rules(parse_forest, 
                                                   parse_tree.leaves())
         for rule in binary_rules:
@@ -150,7 +161,7 @@ def initialize_syntax_chart(tree, chart = None, index = 0):
     
     span = (min_span, max_span)
     if span in chart:
-        chart[span] = ['%s:%s' % (chart[span], tree.node)]
+        chart[span] = ['%s:%s' % (chart[span][0], tree.node)]
     else:
         chart[span] = [tree.node]
 
@@ -176,19 +187,21 @@ def get_syntax_nodes(syntax_chart, span, k):
                                   if i is span[0] and j > span[1]]
             left_parent_spans = [(i, j) for (i, j) in syntax_chart 
                                   if i < span[0] and j is span[1]]
-            for right_parents in right_parent_spans:
-                right_siblings = syntax_chart[(span[1], right_parents[1])]
-                for rs in right_siblings:
-                    if not re.search(tokens, rs):
-                        for rp in syntax_chart[right_parents]:
-                            new_node = rp + '/' + rs
+            for right_parent_span in right_parent_spans:
+                right_siblings = syntax_chart.get((span[1], 
+                                                   right_parent_span[1]), [])
+                for right_sibling in right_siblings:
+                    if not re.search(tokens, right_sibling):
+                        for right_parent in syntax_chart[right_parent_span]:
+                            new_node = right_parent + '/' + right_sibling
                             syntax_chart.setdefault(span, []).append(new_node)
-            for left_parents in left_parent_spans:
-                left_siblings = syntax_chart[(left_parents[0], span[0])]
-                for ls in left_siblings:
-                    if not re.search(tokens, ls):
-                        for lp in syntax_chart[left_parents]:
-                            new_node = ls + '\\' + lp
+            for left_parent_span in left_parent_spans:
+                left_siblings = syntax_chart.get((left_parent_span[0], 
+                                                  span[0]), [])
+                for left_sibling in left_siblings:
+                    if not re.search(tokens, left_sibling):
+                        for left_parent in syntax_chart[left_parent_span]:
+                            new_node = left_sibling + '\\' + left_parent
                             syntax_chart.setdefault(span, []).append(new_node)
 
     return syntax_chart.get(span, [])    
@@ -247,8 +260,8 @@ def grammar_to_bitpar_files(prefix, grammar, lexicon):
     for rule, value in grammar.iteritems():
         grammar_out.write('%s %s %s\n' % (value, rule[0], ' '.join(rule[1])))
 
-    for word, pos_tags in lexicon.iteritems():
-        lexicon_out.write('%s\t%s\n' % (word, ' '.join(pos_tags)))
+    for rule, value in lexicon.iteritems():
+        lexicon_out.write('%s\t%s\t%s\n' % (rule[1][0], rule[0], value))
 
     grammar_out.close()
     lexicon_out.close()
@@ -335,6 +348,14 @@ def main():
 
         grammar_to_bitpar_files(output_file_name, binary, unary)
 
+def test():
+    """Testing goes here."""
+    parse_tree = Tree("( (S (PP (VBG according) (PP (TO to) (NP (DT the) (NNP International) (NNP Transport) (NNP Federation)))) (, ,) (NP (NP (QP (IN over) (CD 40)) (NN %)) (PP (IN of) (NP (NP (DT the) (NNS ships)) (VP (VBD wrecked) (PP (IN in) (NP (CD 1998))))))) (VP (VBD were) (VP (VBG sailing) (PP (IN under) (NP (NP (NNS flags)) (PP (IN of) (NP (NP (NN convenience)) (, ,) (NP (NP (DT the) (NN symbol)) (PP (IN of) (NP (NN profit)))) (CC and) (NP (NP (DT the) (NN exploitation)) (PP (IN of) (NP (NP (JJ human) (NNS beings)) (PP (IN at) (NP (NP (DT the) (NN expense)) (PP (IN of) (NP (NN safety)))))))))))))) (. .)))")
+    reordered_indexes = [2, 3, 4, 5, 6, 7, 1, 9, 10, 11, 12, 13, 14, 8, 15, 16, 17, 0, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 34, 33, 35, 36, 37, 38]
+    parse_forest = generate_forest(parse_tree, reordered_indexes, '-I')
+    for k, v in parse_forest.iteritems():
+        print k, v
 
 if __name__ == '__main__':
     main()
+    #test()
