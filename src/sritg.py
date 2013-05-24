@@ -35,9 +35,9 @@ def extract_sitg(alignments_file_name, parses_file_name, inv_extension):
 
 def freq_to_prob(grammar):
     """Convert frequencies to probabilities."""
-    lhs_count = count_lhs(itg)
+    lhs_count = count_lhs(grammar)
     prob_grammar = {}
-    for rule, rule_freq in itg.iteritems():
+    for rule, rule_freq in grammar.iteritems():
         prob_grammar[rule] = float(rule_freq) / lhs_count[rule[0]]
 
     return prob_grammar
@@ -76,9 +76,11 @@ def extract_itg(alignments_file_name, parses_file_name, inv_extension):
     
     for l1_parse in parses_file:
         reordered_indexes = str_to_reordered_indexes(alignments_file.next())
-        parse_forest = generate_forest(Tree(l1_parse), 
+        parse_tree = Tree(l1_parse)
+        parse_forest = generate_forest(parse_tree, 
             reordered_indexes, inv_extension)
-        binary_rules, unary_rules = extract_rules(parse_forest)
+        binary_rules, unary_rules = extract_rules(parse_forest, 
+                                                  parse_tree.leaves())
         for rule in binary_rules:
             binary_itg[rule] += 1
 
@@ -171,8 +173,10 @@ def get_syntax_nodes(syntax_chart, span, k):
             syntax_chart.setdefault(span, []).append(new_node)
         else:
             #'/' and '\'-rules
-            right_parent_spans = [(i,j) for (i,j) in syntax_chart if i is span[0] and j > span[1]]
-            left_parent_spans = [(i,j) for (i,j) in syntax_chart if i < span[0] and j is span[1]]
+            right_parent_spans = [(i, j) for (i, j) in syntax_chart 
+                                  if i is span[0] and j > span[1]]
+            left_parent_spans = [(i, j) for (i, j) in syntax_chart 
+                                  if i < span[0] and j is span[1]]
             for right_parents in right_parent_spans:
                 right_siblings = syntax_chart[(span[1], right_parents[1])]
                 for rs in right_siblings:
