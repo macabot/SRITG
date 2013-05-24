@@ -1,10 +1,5 @@
 # extract ITG 
-# TODO can a chart position contain multiple nodes?
-#   1  2  3  4
-# 0 a  e  a+f or e+c?
-# 1    b  f
-# 2       c
-# 3          d
+
 """
 By Michael Cabot (6047262) and Sander Nugteren (6042023)
 """
@@ -25,17 +20,27 @@ def extract_sitg(alignments_file_name, parses_file_name, inv_extension):
         between sentences in l1_file_name and l2_file_name
     parses_file_name -- name of file containing parse trees
         of the sentences in l1_file_name
+    inv_extension -- extension denoting whether a node is inverted
         
-    Returns dictionary mapping ITG rules to their probability
-    Each ITG rule is represented as the 3-tuple: 
-    (lhs, rhs, inverted)"""
-    itg = extract_itg(alignments_file_name, parses_file_name, inv_extension)
-    lhs_count = count_lhs(itg)
-    sitg = {}
-    for rule, rule_freq in itg.iteritems():
-        sitg[rule] = float(rule_freq) / lhs_count[rule[0]]
+    Returns dictionary mapping binary ITG rules to their probability and 
+    dictionary mapping unary rules to their probability
+    Each ITG rule is represented as the tuple (lhs, rhs), where rhs is a tuple
+    of nodes."""
+    binary_itg, unary_itg = extract_itg(alignments_file_name, parses_file_name, 
+                                        inv_extension)
+    binary_sitg = freq_to_prob(binary_itg)
+    unary_sitg = freq_to_prob(unary_itg)
 
-    return sitg
+    return binary_sitg, unary_sitg
+
+def freq_to_prob(grammar):
+    """Convert frequencies to probabilities."""
+    lhs_count = count_lhs(itg)
+    prob_grammar = {}
+    for rule, rule_freq in itg.iteritems():
+        prob_grammar[rule] = float(rule_freq) / lhs_count[rule[0]]
+
+    return prob_grammar
 
 def count_lhs(itg):
     """Count the frequency of the left-hand-side (lhs) of the
@@ -60,11 +65,12 @@ def extract_itg(alignments_file_name, parses_file_name, inv_extension):
         between sentences in l1_file_name and l2_file_name
     parses_file_name -- name of file containing parse trees
         of the sentences in l1_file_name
+    inv_extension -- extension denoting whether a node is inverted
         
-    Returns a Counter of ITG rules
-    Each ITG rule is represented as the 3-tuple: 
-    (lhs, rhs, inverted)"""
-    itg = Counter()
+    Returns a Counter of binary ITG rules and unary rules. Each ITG rule is 
+    represented as the tuple (lhs, rhs), where rhs is a tuple of nodes."""
+    binary_itg = Counter()
+    unary_itg = Counter()
     alignments_file = open(alignments_file_name)
     parses_file = open(parses_file_name)
     
@@ -72,13 +78,16 @@ def extract_itg(alignments_file_name, parses_file_name, inv_extension):
         reordered_indexes = str_to_reordered_indexes(alignments_file.next())
         parse_forest = generate_forest(Tree(l1_parse), 
             reordered_indexes, inv_extension)
-        rules = extract_rules(parse_forest)
-        for rule in rules:
-            itg[rule] += 1
+        binary_rules, unary_rules = extract_rules(parse_forest)
+        for rule in binary_rules:
+            binary_itg[rule] += 1
+
+        for rule in unary_rules:
+            unary_itg[rules] += 1
 
     alignments_file.close()
     parses_file.close()
-    return itg
+    return binary_itg, unary_itg
 
 def str_to_reordered_indexes(alignment_str):
     """Return the indexes of the word in the reordered sentence."""
@@ -92,11 +101,11 @@ def generate_forest(tree, reordered_indexes, inv_extension):
     # initialize
     syntax_chart, _, _ = initialize_syntax_chart(tree)
     for i, word in enumerate(words):
-        pos_tag = get_syntax_nodes(syntax_chart, (i, i+1))
-        if pos_tag == None:
+        pos_tags = get_syntax_nodes(syntax_chart, (i, i+1), i+1)
+        if len(pos_tags) == 0:
             continue
 
-        parse_forest[(i, i+1)] = (pos_tag, [(word, None, i+1)])
+        parse_forest[(i, i+1)] = {pos_tags[0]: [(word, None, i+1)]}
             
     # expand
     for span_size in xrange(2, len(words)+1): # loop over spans sizes
@@ -106,24 +115,18 @@ def generate_forest(tree, reordered_indexes, inv_extension):
             if not is_valid_phrase(span, reordered_indexes):
                 continue
 
-            for k in xrange(i+1, j): # k splits span [i,j) in [i,k), [k,j)
-                left, _ = parse_forest.get((i, k), (None, []))
-                right, _ = parse_forest.get((k, j), (None, []))
-                if not left or not right:
-                    continue
+            for k in xrange(i+1, j): # k splits span [i,j) in [i,k) and [k,j)
+                left_children = parse_forest.get((i, k), {})
+                right_children = parse_forest.get((k, j), {})
+                for left, right in itertools.product(left_children, 
+                        right_children):
+                    for lhs in get_syntax_nodes(syntax_chart, span, k):
+                        if is_inverted(reordered_indexes, (i, k), (k, j)):
+                            lhs += inv_extension
 
-                if span in parse_forest:
-                    lhs, rhs_list = parse_forest[span]
-                    rhs_list.append((left, right, k))
-                    parse_forest[span] = (lhs, rhs_list)
-                else:
-                    lhs = get_syntax_nodes(syntax_chart, span)
-                    if lhs == None:
-                        continue
-                    if is_inverted(reordered_indexes, (i, k), (k, j)):
-                        lhs += inv_extension
-
-                    parse_forest[span] = (lhs, [(left, right, k)])
+                        chart_entry = parse_forest.get(span, {})
+                        chart_entry.setdefault(lhs, []).append((left, right, k))
+                        parse_forest[span] = chart_entry
     
     return parse_forest
 
@@ -145,9 +148,9 @@ def initialize_syntax_chart(tree, chart = None, index = 0):
     
     span = (min_span, max_span)
     if span in chart:
-        chart[span] = '%s:%s' % (chart[span], tree.node)
+        chart[span] = ['%s:%s' % (chart[span], tree.node)]
     else:
-        chart[span] = tree.node
+        chart[span] = [tree.node]
 
     return chart, span, index
 
@@ -184,13 +187,27 @@ def get_syntax_nodes(syntax_chart, span, k):
                         for lp in syntax_chart[left_parents]:
                             new_node = ls + '\\' + lp
                             syntax_chart.setdefault(span, []).append(new_node)
-    return syntax_chart[span]
+    return syntax_chart[span]    
+    
+def extract_rules(parse_forest, words):
+    """Extract all binary and unary rules in the parse forest."""
+    binary_rules = []
+    # binary rules
+    for span_size in reversed(xrange(2, len(words)+1)): # loop over spans sizes
+        for i in xrange(len(words)-span_size+1):
+            j = i+span_size
+            span = (i, j)
+            for lhs, rhs_list in parse_forest.get(span, {}).iteritems():
+                for left, right, _ in rhs_list:
+                    binary_rules.append((lhs, (left, right)))
+    # unary rules
+    unary_rules = []
+    for i, word in enumerate(words):
+        if (i, i+1) in parse_forest:
+            lhs, _ = parse_forest[(i, i+1)].items()[0]
+            unary_rules.append((lhs, (word,)))
 
-    return 'X'
-
-def extract_rules(parse_forest):
-    """Extract all rules in the parse forest."""
-    return [] # TODO implement  # extract all rules
+    return binary_rules, unary_rules
 
 def is_valid_phrase(span, reordered_indexes):
     """Check whether a span is contigious"""
@@ -310,7 +327,7 @@ def remove_lexicon(grammar):
 
     return new_grammar, lexicon
 
-def grammar_to_bitpar_files(prefix, grammar):
+def grammar_to_bitpar_files(prefix, grammar, lexicon):
     """Creates a grammar and lexicon file from an (s)itg. 
     Grammar file is formatted: <frequency> <lhs> <rhs> 
     Lexicon file is formatted: <word> <lhs1> <freq1> <lhs2> <freq2> ...
@@ -318,8 +335,10 @@ def grammar_to_bitpar_files(prefix, grammar):
     Keyword arguments:
     prefix -- prefix of output file names. Grammar file and lexicon file will
         get the extension .grammar and .lexicon respectively.
-    grammar -- dictionary mapping itg-rules to their frequency or probability"""
-    grammar, lexicon = remove_lexicon(grammar)
+    grammar -- dictionary mapping binary itg-rules to their frequency or
+    probability
+    lexicon -- dictionary mapping unary rules to their frequency or 
+    probability."""
     grammar_out = open('%s.grammar'%prefix, 'w')
     lexicon_out = open('%s.lexicon'%prefix, 'w')
     for rule, value in grammar.iteritems():
@@ -405,13 +424,13 @@ def main():
         parses_file_name = args.parses
         stochastic = args.stochastic
         if stochastic:
-            grammar = extract_sitg(alignments_file_name, parses_file_name,
+            binary, unary = extract_sitg(alignments_file_name, parses_file_name,
                 inv_extension)
         else:
-            grammar = extract_itg(alignments_file_name, parses_file_name,
+            binary, unary = extract_itg(alignments_file_name, parses_file_name,
                 inv_extension)
 
-        grammar_to_bitpar_files(output_file_name, grammar)
+        grammar_to_bitpar_files(output_file_name, binary, unary)
 
 def test():
     '''
@@ -432,6 +451,7 @@ def test():
     d[(0,1)] = ['D']
     d[(0,4)] = ['S']
     print get_syntax_nodes(d, (1,4), 2)[0]
+
 
 if __name__ == '__main__':
     #main()
