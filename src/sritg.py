@@ -161,7 +161,6 @@ def get_syntax_nodes(syntax_chart, span, k):
     node is created then it is also added to the syntax chart."""
     if span in syntax_chart:
         return syntax_chart[span]
-
     tokens = '[+\\/]'
     left_hand_sides = syntax_chart.get((span[0], k), [])
     right_hand_sides = syntax_chart.get((k, span[1]), [])
@@ -191,7 +190,7 @@ def get_syntax_nodes(syntax_chart, span, k):
                         for lp in syntax_chart[left_parents]:
                             new_node = ls + '\\' + lp
                             syntax_chart.setdefault(span, []).append(new_node)
-    return syntax_chart[span]    
+    return syntax_chart.get(span, [])    
     
 def extract_rules(parse_forest, words):
     """Extract all binary and unary rules in the parse forest."""
@@ -452,9 +451,9 @@ def test():
     d[(2,3)] = ['B']
     print get_syntax_nodes(d, (2,4), 3)[0]
     d[(1,2)] = ['C']
-    d[(0,1)] = ['D']
+    d[(0,1)] = ['D', 'E']
     d[(0,4)] = ['S']
-    print get_syntax_nodes(d, (1,4), 2)[0]
+    print get_syntax_nodes(d, (1,4), 2)
 
 
 if __name__ == '__main__':
