@@ -13,6 +13,7 @@ from collections import Counter
 from nltk import Tree
 import argparse
 import re
+import itertools
 
 
 def extract_sitg(alignments_file_name, parses_file_name, inv_extension):
@@ -91,7 +92,7 @@ def generate_forest(tree, reordered_indexes, inv_extension):
     # initialize
     syntax_chart, _, _ = initialize_syntax_chart(tree)
     for i, word in enumerate(words):
-        pos_tag = get_syntax_node(syntax_chart, (i, i+1))
+        pos_tag = get_syntax_nodes(syntax_chart, (i, i+1))
         if pos_tag == None:
             continue
 
@@ -116,7 +117,7 @@ def generate_forest(tree, reordered_indexes, inv_extension):
                     rhs_list.append((left, right, k))
                     parse_forest[span] = (lhs, rhs_list)
                 else:
-                    lhs = get_syntax_node(syntax_chart, span)
+                    lhs = get_syntax_nodes(syntax_chart, span)
                     if lhs == None:
                         continue
                     if is_inverted(reordered_indexes, (i, k), (k, j)):
@@ -150,15 +151,43 @@ def initialize_syntax_chart(tree, chart = None, index = 0):
 
     return chart, span, index
 
-def get_syntax_node(syntax_chart, span):
+def get_syntax_nodes(syntax_chart, span, k):
     """Read or create the node for the given span from the syntax chart. If the
     node is created then it is also added to the syntax chart."""
     if span in syntax_chart:
         return syntax_chart[span]
 
-    return 'X' # TODO implement
-    
-    
+    tokens = '[+\\/]'
+    left_hand_sides = syntax_chart.get((span[0], k), [])
+    right_hand_sides = syntax_chart.get((k, span[1]), [])
+
+    for lhs, rhs in itertools.product(left_hand_sides, right_hand_sides):
+        if not re.search(tokens, lhs) and not re.search(tokens, rhs):
+            # '+'-rules
+            new_node = lhs + '+' + rhs
+            syntax_chart.setdefault(span, []).append(new_node)
+        else:
+            #'/' and '\'-rules
+            right_parent_spans = [(i,j) for (i,j) in syntax_chart if i is span[0] and j > span[1]]
+            left_parent_spans = [(i,j) for (i,j) in syntax_chart if i < span[0] and j is span[1]]
+            for right_parents in right_parent_spans:
+                right_siblings = syntax_chart[(span[1], right_parents[1])]
+                for rs in right_siblings:
+                    if not re.search(tokens, rs):
+                        for rp in syntax_chart[right_parents]:
+                            new_node = rp + '/' + rs
+                            syntax_chart.setdefault(span, []).append(new_node)
+            for left_parents in left_parent_spans:
+                left_siblings = syntax_chart[(left_parents[0], span[0])]
+                for ls in left_siblings:
+                    if not re.search(tokens, ls):
+                        for lp in syntax_chart[left_parents]:
+                            new_node = ls + '\\' + lp
+                            syntax_chart.setdefault(span, []).append(new_node)
+    return syntax_chart[span]
+
+    return 'X'
+
 def extract_rules(parse_forest):
     """Extract all rules in the parse forest."""
     return [] # TODO implement  # extract all rules
@@ -385,13 +414,24 @@ def main():
         grammar_to_bitpar_files(output_file_name, grammar)
 
 def test():
-    tree = Tree('(S (NP (N man)) (VP (V bites) (NP (N dog))))')
-    reordered_index = [2, 1, 0]
-    inv_extension = '-I'
-    parse_forest = generate_forest(tree, reordered_index, inv_extension)
-    for k, v in parse_forest.iteritems():
-        print k, v
-    
+    '''
+    d = {}
+    d[(0,1)] = ['A']
+    d[(1,2)] = ['B']
+    print get_syntax_nodes(d, (0,2), 1)[0]
+    d[(2,3)] = ['C']
+    d[(3,4)] = ['D']
+    d[(0,4)] = ['S']
+    print get_syntax_nodes(d, (0,3), 2)[0]
+    '''
+    d = {}
+    d[(3,4)] = ['A']
+    d[(2,3)] = ['B']
+    print get_syntax_nodes(d, (2,4), 3)[0]
+    d[(1,2)] = ['C']
+    d[(0,1)] = ['D']
+    d[(0,4)] = ['S']
+    print get_syntax_nodes(d, (1,4), 2)[0]
 
 if __name__ == '__main__':
     #main()
