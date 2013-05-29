@@ -348,6 +348,33 @@ def main():
 
         grammar_to_bitpar_files(output_file_name, binary, unary)
 
+def hamming_distance(translated_phrase, true_phrase):
+    #computes the hamming distance between two phrases.
+    #assumes that the translation has the same length as the true phrase
+    translated_phrase = str.split(translated_phrase, ' ')
+    true_phrase = str.split(true_phrase, ' ')
+    total = 0
+    #maybe could be neater with itertools?
+    for i in xrange(len(translated_phrase)):
+        if translated_phrase[i] is not true_phrase[i]:
+            total += 1
+    return 1 - total/len(translated_phrase)
+
+def kendalls_tau(translated_phrase, true_phrase):
+    #computes kendall's tau between two phrases.
+    #assumes that the translation has the same length as the true phrase
+    translated_phrase = str.split(translated_phrase, ' ')
+    true_phrase = str.split(true_phrase, ' ')
+    total = 0
+    #maybe could be neater with itertools?
+    for i in xrange(len(translated_phrase)):
+        #for j in xrange(i+1, len(translated_phrase)): #could be faster?
+        for j in xrange(len(translated_phrase)):
+            if i < j and true_phrase.index(translated_phrase[i]) > true_phrase.index(translated_phrase[j]):
+                total += 1
+    Z = (len(translated_phrase) ** 2 - len(translated_phrase))/2
+    return 1 - total/Z
+
 def test():
     """Testing goes here."""
     parse_tree = Tree("( (S (PP (VBG according) (PP (TO to) (NP (DT the) (NNP International) (NNP Transport) (NNP Federation)))) (, ,) (NP (NP (QP (IN over) (CD 40)) (NN %)) (PP (IN of) (NP (NP (DT the) (NNS ships)) (VP (VBD wrecked) (PP (IN in) (NP (CD 1998))))))) (VP (VBD were) (VP (VBG sailing) (PP (IN under) (NP (NP (NNS flags)) (PP (IN of) (NP (NP (NN convenience)) (, ,) (NP (NP (DT the) (NN symbol)) (PP (IN of) (NP (NN profit)))) (CC and) (NP (NP (DT the) (NN exploitation)) (PP (IN of) (NP (NP (JJ human) (NNS beings)) (PP (IN at) (NP (NP (DT the) (NN expense)) (PP (IN of) (NP (NN safety)))))))))))))) (. .)))")
