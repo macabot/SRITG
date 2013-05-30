@@ -353,7 +353,7 @@ def hamming_distance(translated_phrase, true_phrase):
     #assumes that the translation has the same length as the true phrase
     translated_phrase = str.split(translated_phrase, ' ')
     true_phrase = str.split(true_phrase, ' ')
-    total = 0
+    total = 0.0
     #maybe could be neater with itertools?
     for i in xrange(len(translated_phrase)):
         if translated_phrase[i] is not true_phrase[i]:
