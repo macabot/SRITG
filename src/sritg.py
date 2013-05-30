@@ -9,6 +9,7 @@ from nltk import Tree
 import argparse
 import re
 import itertools
+import sys
 
 
 def extract_sitg(alignments_file_name, parses_file_name, inv_extension):
@@ -71,10 +72,15 @@ def extract_itg(alignments_file_name, parses_file_name, inv_extension):
     represented as the tuple (lhs, rhs), where rhs is a tuple of nodes."""
     binary_itg = Counter()
     unary_itg = Counter()
+    num_lines = number_of_lines(parses_file_name)
     alignments_file = open(alignments_file_name)
     parses_file = open(parses_file_name)
     
-    for l1_parse in parses_file:
+    for i, l1_parse in enumerate(parses_file):
+        if i % (num_lines/100) is 0:
+            sys.stdout.write('\r%d%%' % (i*100/num_lines,))
+            sys.stdout.flush()
+
         reordered_indexes = str_to_reordered_indexes(alignments_file.next())
         parse_tree = Tree(l1_parse)
         try: # TODO remove
@@ -370,10 +376,27 @@ def kendalls_tau(translated_phrase, true_phrase):
     for i in xrange(len(translated_phrase)):
         #for j in xrange(i+1, len(translated_phrase)): #could be faster?
         for j in xrange(len(translated_phrase)):
-            if i < j and true_phrase.index(translated_phrase[i]) > true_phrase.index(translated_phrase[j]):
+            if i < j and true_phrase.index(translated_phrase[i]) > \
+                    true_phrase.index(translated_phrase[j]):
                 total += 1
     Z = (len(translated_phrase) ** 2 - len(translated_phrase))/2
     return 1 - total/Z
+
+def number_of_lines(file_name):
+    """Counts the number of lines in a file
+    
+    Keywords arguments:
+    file_name -- name of file
+    
+    Returns number of lines
+    """
+    amount = 0
+    doc = open(file_name, 'r')
+    for _ in doc:
+        amount += 1
+
+    doc.close()
+    return amount
 
 def test():
     """Testing goes here."""
