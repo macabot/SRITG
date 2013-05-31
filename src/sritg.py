@@ -430,6 +430,31 @@ def number_of_lines(file_name):
     doc.close()
     return amount
 
+def best_reordering(bitpar_probs, srilm_probs, reordered_indexes, 
+        output_file_name):
+    bpp_file = open(bitpar_probs, 'r')
+    srilm_file = open(srilm_probs, 'r')
+    ri_file = open(reordered_indexes, 'r')
+    out = open(output_file_name, 'w')
+    best_ri = None
+    best_prob = float('-inf')
+    for ri in ri_file:
+        bpp = float(bpp_file.next().strip())
+        ri = ri.strip()
+        if len(ri):
+            prob = bpp + float(srilm_file.next().strip)
+            if prob > best_prob:
+                best_ri = ri
+                best_prob = prob
+        else:
+            out.write('%s\n' % best_ri)
+            best_ri = None
+            best_prob = float('-inf')
+    bpp_file.close()
+    srilm_file.close()
+    ri_file.close()
+    out.close()
+
 def test():
     """Testing goes here."""
     '''parse_tree = Tree("( (S (S (SBAR (IN as) (S (NP (PRP we)) (VP (VBP see) (NP (PRP it))))) (, ,) (NP (EX there)) (VP (MD will) (VP (VB be) (NP (NP (DT a) (NN dovetailing)) (PP (IN of) (NP (NP (NP (CD three) (NNS mechanisms)) (PP (IN in) (NP (DT the) (NN future)))) (: :) (NP (NP (NP (DT a) (NN system)) (PP (IN of) (NP (JJ independent) (JJ prior) (NN approval))) (PP (IN by) (NP (DT the) (JJ financial) (NN controller)))) (, ,) (NP (NN concomitant)) (CC and) (NP (NP (JJ follow-up) (NN control)) (PP (IN by) (NP (NP (DT the) (JJ internal) (NN audit) (NN service)) (PRN (: -) (VP (ADVP (RB also)) (VBN known) (PP (IN as) (NP (DT the) (NN audit) (NN service)))) (: -)) (SBAR (WHNP (WDT which)) (S (VP (VBZ has) (ADVP (RB yet)) (S (VP (TO to) (VP (VB be) (VP (VBN set) (PRT (RP up))))))))))))))))))) (, ,) (CC and) (S (ADVP (RB finally)) (, ,) (NP (EX there)) (VP (MD will) (VP (VB be) (NP (NP (DT the) (JJ targeted) (NN tracking-down)) (PP (IN of) (NP (NP (NNS irregularities)) (PP (IN by) (NP (NP (NNP OLAF)) (, ,) (NP (DT the) (JJ new) (JJ anti-fraud) (NN office)))))))))) (. .)))")
