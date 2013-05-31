@@ -10,6 +10,7 @@ import argparse
 import re
 import itertools
 import sys
+import time
 
 
 def extract_sitg(alignments_file_name, parses_file_name, inv_extension):
@@ -81,19 +82,19 @@ def extract_itg(alignments_file_name, parses_file_name, inv_extension):
             sys.stdout.write('\r%d%%' % (i*100/num_lines,))
             sys.stdout.flush()
 
-        reordered_indexes = str_to_reordered_indexes(alignments_file.next())
-        parse_tree = Tree(l1_parse)
-        try: # TODO remove
+        try: # TODO remove try/catch
+            reordered_indexes = str_to_reordered_indexes(alignments_file.next())
+            parse_tree = Tree(l1_parse)            
             parse_forest = generate_forest(parse_tree, 
                 reordered_indexes, inv_extension)
         except:
             error_log = open('error.log', 'a')
-            error_log.write('%s\n' % parse_tree.pprint(10000000000000000000000))
+            error_log.write('%s\n' % time.asctime())
+            error_log.write('line: %s\n' % i)
+            error_log.write('%s\n' % l1_parse.strip())
             error_log.write('%s\n' % reordered_indexes)
             error_log.close()
-            print 'Error in parse_forest/3 where: \
-                \ntree = %s\nreordered = %s' % (parse_tree, reordered_indexes)
-            print 'tree and reordered are written to error.log'
+            print 'Error in parse_forest/3. See error.log'
             raise
 
         binary_rules, unary_rules = extract_rules(parse_forest, 
@@ -371,7 +372,7 @@ def kendalls_tau(translated_phrase, true_phrase):
     #assumes that the translation has the same length as the true phrase
     translated_phrase = str.split(translated_phrase, ' ')
     true_phrase = str.split(true_phrase, ' ')
-    total = 0
+    total = 0.0
     #maybe could be neater with itertools?
     for i in xrange(len(translated_phrase)):
         #for j in xrange(i+1, len(translated_phrase)): #could be faster?
@@ -400,8 +401,8 @@ def number_of_lines(file_name):
 
 def test():
     """Testing goes here."""
-    parse_tree = Tree("( (S (PP (VBG according) (PP (TO to) (NP (DT the) (NNP International) (NNP Transport) (NNP Federation)))) (, ,) (NP (NP (QP (IN over) (CD 40)) (NN %)) (PP (IN of) (NP (NP (DT the) (NNS ships)) (VP (VBD wrecked) (PP (IN in) (NP (CD 1998))))))) (VP (VBD were) (VP (VBG sailing) (PP (IN under) (NP (NP (NNS flags)) (PP (IN of) (NP (NP (NN convenience)) (, ,) (NP (NP (DT the) (NN symbol)) (PP (IN of) (NP (NN profit)))) (CC and) (NP (NP (DT the) (NN exploitation)) (PP (IN of) (NP (NP (JJ human) (NNS beings)) (PP (IN at) (NP (NP (DT the) (NN expense)) (PP (IN of) (NP (NN safety)))))))))))))) (. .)))")
-    reordered_indexes = [2, 3, 4, 5, 6, 7, 1, 9, 10, 11, 12, 13, 14, 8, 15, 16, 17, 0, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 34, 33, 35, 36, 37, 38]
+    parse_tree = Tree("( (S (S (SBAR (IN as) (S (NP (PRP we)) (VP (VBP see) (NP (PRP it))))) (, ,) (NP (EX there)) (VP (MD will) (VP (VB be) (NP (NP (DT a) (NN dovetailing)) (PP (IN of) (NP (NP (NP (CD three) (NNS mechanisms)) (PP (IN in) (NP (DT the) (NN future)))) (: :) (NP (NP (NP (DT a) (NN system)) (PP (IN of) (NP (JJ independent) (JJ prior) (NN approval))) (PP (IN by) (NP (DT the) (JJ financial) (NN controller)))) (, ,) (NP (NN concomitant)) (CC and) (NP (NP (JJ follow-up) (NN control)) (PP (IN by) (NP (NP (DT the) (JJ internal) (NN audit) (NN service)) (PRN (: -) (VP (ADVP (RB also)) (VBN known) (PP (IN as) (NP (DT the) (NN audit) (NN service)))) (: -)) (SBAR (WHNP (WDT which)) (S (VP (VBZ has) (ADVP (RB yet)) (S (VP (TO to) (VP (VB be) (VP (VBN set) (PRT (RP up))))))))))))))))))) (, ,) (CC and) (S (ADVP (RB finally)) (, ,) (NP (EX there)) (VP (MD will) (VP (VB be) (NP (NP (DT the) (JJ targeted) (NN tracking-down)) (PP (IN of) (NP (NP (NNS irregularities)) (PP (IN by) (NP (NP (NNP OLAF)) (, ,) (NP (DT the) (JJ new) (JJ anti-fraud) (NN office)))))))))) (. .)))")
+    reordered_indexes = [0, 1, 2, 3, 4, 15, 5, 6, 7, 10, 11, 8, 9, 12, 13, 14, 16, 17, 18, 19, 20, 22, 23, 24, 25, 26, 27, 28, 29, 34, 35, 21, 36, 37, 43, 44, 45, 46, 47, 48, 38, 30, 31, 32, 33, 49, 50, 51, 39, 40, 41, 42, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 69, 70, 65, 66, 67, 68, 71]
     parse_forest = generate_forest(parse_tree, reordered_indexes, '-I')
     for k, v in parse_forest.iteritems():
         print k, v
