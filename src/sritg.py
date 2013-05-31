@@ -293,7 +293,7 @@ def tree_to_reordered_sentence(tree, inv_extension):
         else:
             return '%s %s' % (left_string, right_string)
 
-def reorder(reordering_file_name, output_file_name, inv_extension):
+def reorder(reordering_file_name, output_file_name, inv_extension, start, stop):
     """Reorder all sentences according to their itg parses
     
     Keyword arguments:
@@ -306,7 +306,7 @@ def reorder(reordering_file_name, output_file_name, inv_extension):
         line = line.strip()
         tree = Tree(line)
         reordered_sentence = tree_to_reordered_sentence(tree, inv_extension)
-        out.write('%s\n' % reordered_sentence)
+        out.write('%s %s %s\n' % (start, reordered_sentence, stop))
 
     reordering_file.close()
     out.close()
@@ -341,7 +341,7 @@ def main():
     inv_extension = '-%s' % args.inv_extension
     if args.reordering:
         reordering_file_name = args.reordering
-        reorder(reordering_file_name, output_file_name, inv_extension)
+        reorder(reordering_file_name, output_file_name, inv_extension, '<s>','</s>')
     else:
         alignments_file_name = args.alignments
         parses_file_name = args.parses
