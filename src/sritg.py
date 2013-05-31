@@ -84,6 +84,10 @@ def extract_itg(alignments_file_name, parses_file_name, inv_extension):
 
         try: # TODO remove try/catch
             reordered_indexes = str_to_reordered_indexes(alignments_file.next())
+            # remove outer brackets from Berkeley parse
+            l1_parse = l1_parse.strip()
+            l1_parse = l1_parse[1:len(l1_parse)-1]
+            l1_parse = l1_parse.strip()
             parse_tree = Tree(l1_parse)            
             parse_forest = generate_forest(parse_tree, 
                 reordered_indexes, inv_extension)
@@ -179,7 +183,7 @@ def get_syntax_nodes(syntax_chart, span, k):
     node is created then it is also added to the syntax chart."""
     if span in syntax_chart:
         return syntax_chart[span]
-    tokens = '[+\\/]'
+    tokens = '[+\\\\/]'
     left_hand_sides = syntax_chart.get((span[0], k), [])
     right_hand_sides = syntax_chart.get((k, span[1]), [])
 
@@ -273,43 +277,69 @@ def grammar_to_bitpar_files(prefix, grammar, lexicon):
     grammar_out.close()
     lexicon_out.close()
 
-def tree_to_reordered_sentence(tree, inv_extension):
+def tree_to_reordered(tree, inv_extension, index = 0):
     """Reorders a sentences according to its itg-tree
     
     Keyword arguments:
     tree -- nltk tree
+    inv_extension -- extension denoting whether a node is inverted
     
-    Returns reordered string"""
+    Returns reordered string, indexes and number of leaves"""
     pattern = '%s' % inv_extension # match if contains string
     if not isinstance(tree, Tree): # if terminal node
-        return tree
+        return tree, [index], index+1
     elif len(tree)==1: # if unary rule
-        return tree_to_reordered_sentence(tree[0], inv_extension)
-    else:
-        left_string = tree_to_reordered_sentence(tree[0], inv_extension)
-        right_string = tree_to_reordered_sentence(tree[1], inv_extension)
+        return tree_to_reordered(tree[0], inv_extension, index)
+    else: # if binary rule
+        left_string, left_indexes, index = tree_to_reordered(tree[0],
+            inv_extension, index)
+        right_string, right_indexes, index = tree_to_reordered(tree[1],
+            inv_extension, index)
         if re.search(pattern, tree.node): # if inverted rule
-            return '%s %s' % (right_string, left_string)
+            reordered_string = '%s %s' % (right_string, left_string)
+            right_indexes.extend(left_indexes)
+            reordered_indexes = right_indexes
         else:
-            return '%s %s' % (left_string, right_string)
+            reordered_string = '%s %s' % (left_string, right_string)
+            left_indexes.extend(right_indexes)
+            reordered_indexes = left_indexes
 
-def reorder(reordering_file_name, output_file_name, inv_extension, start, stop):
+        return reordered_string, reordered_indexes, index
+
+def reorder(parses_file_name, prefix, inv_extension, start, stop):
     """Reorder all sentences according to their itg parses
     
     Keyword arguments:
-    reordering_file_name -- File containing ITG parses
-    output_file_name -- output file for reordered sentences
-    inv_extension -- extension of a node denoting the lhs of an inverted rule"""
-    reordering_file = open(reordering_file_name, 'r')
-    out = open(output_file_name, 'w')
-    for line in reordering_file:
+    parses_file_name -- File containing ITG parses
+    prefix -- prefix of output files for reordered sentences and indexes, which
+        get the extension .rs and .ri respectively.
+    inv_extension -- extension of a node denoting the lhs of an inverted rule
+    start -- start symbol for reordered sentence
+    stop -- stop symbol for reordered sentence"""
+    parses_file = open(parses_file_name, 'r')
+    # output files
+    probs_out = open('%s.probs' % prefix, 'w')
+    sentences_out = open('%s.rs' % prefix, 'w')
+    indexes_out = open('%s.ri' % prefix, 'w')
+    for line in parses_file:
         line = line.strip()
-        tree = Tree(line)
-        reordered_sentence = tree_to_reordered_sentence(tree, inv_extension)
-        out.write('%s %s %s\n' % (start, reordered_sentence, stop))
+        if line == '': # new line between n-best lists
+            probs_out.write('\n')
+            sentences_out.write('\n')
+            indexes_out.write('\n')
+        elif 'logvitprob=' in line: # log viterbi probability
+            probs_out.write('%s\n' % line[11:])
+        else: # viterbi parse
+            tree = Tree(line)
+            reordered_sentence, reordered_indexes, _ = tree_to_reordered(tree, 
+                inv_extension)
+            sentences_out.write('%s %s %s\n' % (start, reordered_sentence, stop))
+            indexes_out.write('%s\n' % reordered_indexes)
 
-    reordering_file.close()
-    out.close()
+    parses_file.close()
+    probs_out.close()
+    sentences_out.close()
+    indexes_out.close()
 
 def main():
     """Read command line arguments and perform corresponding action"""
@@ -325,7 +355,8 @@ def main():
         help="File containing sentence parses that need to be reordered.")
     arg_parser.add_argument("-o", "--output", required=True,
         help="When constructing (S)ITG: Prefix of file names for Bitpar output.\
-            When reordering: file name of reordered sentences.")
+            When reordering: Prefix of file names of reordered sentences and \
+            indexes.")
     arg_parser.add_argument("-i", "--inv_extension", default="I",
         help="Extension of a node marking it as the lhs of an inverted rule. \
         Node will be marked as <node>-<extension>")
@@ -401,11 +432,17 @@ def number_of_lines(file_name):
 
 def test():
     """Testing goes here."""
-    parse_tree = Tree("( (S (S (SBAR (IN as) (S (NP (PRP we)) (VP (VBP see) (NP (PRP it))))) (, ,) (NP (EX there)) (VP (MD will) (VP (VB be) (NP (NP (DT a) (NN dovetailing)) (PP (IN of) (NP (NP (NP (CD three) (NNS mechanisms)) (PP (IN in) (NP (DT the) (NN future)))) (: :) (NP (NP (NP (DT a) (NN system)) (PP (IN of) (NP (JJ independent) (JJ prior) (NN approval))) (PP (IN by) (NP (DT the) (JJ financial) (NN controller)))) (, ,) (NP (NN concomitant)) (CC and) (NP (NP (JJ follow-up) (NN control)) (PP (IN by) (NP (NP (DT the) (JJ internal) (NN audit) (NN service)) (PRN (: -) (VP (ADVP (RB also)) (VBN known) (PP (IN as) (NP (DT the) (NN audit) (NN service)))) (: -)) (SBAR (WHNP (WDT which)) (S (VP (VBZ has) (ADVP (RB yet)) (S (VP (TO to) (VP (VB be) (VP (VBN set) (PRT (RP up))))))))))))))))))) (, ,) (CC and) (S (ADVP (RB finally)) (, ,) (NP (EX there)) (VP (MD will) (VP (VB be) (NP (NP (DT the) (JJ targeted) (NN tracking-down)) (PP (IN of) (NP (NP (NNS irregularities)) (PP (IN by) (NP (NP (NNP OLAF)) (, ,) (NP (DT the) (JJ new) (JJ anti-fraud) (NN office)))))))))) (. .)))")
+    '''parse_tree = Tree("( (S (S (SBAR (IN as) (S (NP (PRP we)) (VP (VBP see) (NP (PRP it))))) (, ,) (NP (EX there)) (VP (MD will) (VP (VB be) (NP (NP (DT a) (NN dovetailing)) (PP (IN of) (NP (NP (NP (CD three) (NNS mechanisms)) (PP (IN in) (NP (DT the) (NN future)))) (: :) (NP (NP (NP (DT a) (NN system)) (PP (IN of) (NP (JJ independent) (JJ prior) (NN approval))) (PP (IN by) (NP (DT the) (JJ financial) (NN controller)))) (, ,) (NP (NN concomitant)) (CC and) (NP (NP (JJ follow-up) (NN control)) (PP (IN by) (NP (NP (DT the) (JJ internal) (NN audit) (NN service)) (PRN (: -) (VP (ADVP (RB also)) (VBN known) (PP (IN as) (NP (DT the) (NN audit) (NN service)))) (: -)) (SBAR (WHNP (WDT which)) (S (VP (VBZ has) (ADVP (RB yet)) (S (VP (TO to) (VP (VB be) (VP (VBN set) (PRT (RP up))))))))))))))))))) (, ,) (CC and) (S (ADVP (RB finally)) (, ,) (NP (EX there)) (VP (MD will) (VP (VB be) (NP (NP (DT the) (JJ targeted) (NN tracking-down)) (PP (IN of) (NP (NP (NNS irregularities)) (PP (IN by) (NP (NP (NNP OLAF)) (, ,) (NP (DT the) (JJ new) (JJ anti-fraud) (NN office)))))))))) (. .)))")
     reordered_indexes = [0, 1, 2, 3, 4, 15, 5, 6, 7, 10, 11, 8, 9, 12, 13, 14, 16, 17, 18, 19, 20, 22, 23, 24, 25, 26, 27, 28, 29, 34, 35, 21, 36, 37, 43, 44, 45, 46, 47, 48, 38, 30, 31, 32, 33, 49, 50, 51, 39, 40, 41, 42, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 69, 70, 65, 66, 67, 68, 71]
     parse_forest = generate_forest(parse_tree, reordered_indexes, '-I')
     for k, v in parse_forest.iteritems():
-        print k, v
+        print k, v'''
+    tree = Tree('(S-I (NP (N man)) (VP-I (V bites) (NP (N dog))))')
+    inv_extension = '-I'
+    reordered_sentence, reordered_indexes, index = tree_to_reordered(tree, inv_extension)
+    print reordered_sentence
+    print reordered_indexes
+    print index
 
 if __name__ == '__main__':
     main()
