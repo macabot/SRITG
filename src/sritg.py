@@ -353,6 +353,11 @@ def main():
         help="Calculate the probabilities of the itg rules.")
     arg_parser.add_argument("-r", "--reordering",
         help="File containing sentence parses that need to be reordered.")
+    arg_parser.add_argument("-s2b", "--sentences_to_bitpar",
+        help="File containing sentences which will be formatted for bitpar, i.e.\
+            each word on a separate line and sentences separated by a newline")
+    arg_parser.add_argument("-ml", "--max_length",
+        help="Maximum number of words in a sentence.")
     arg_parser.add_argument("-o", "--output", required=True,
         help="When constructing (S)ITG: Prefix of file names for Bitpar output.\
             When reordering: Prefix of file names of reordered sentences and \
@@ -362,18 +367,13 @@ def main():
         Node will be marked as <node>-<extension>")
     
     args = arg_parser.parse_args()
-    # either create (S)ITG or reorder sentences
-    if (bool(args.alignments) and bool(args.parses)) is bool(args.reordering):
-        arg_parser.error('Invalid arguments: either construct a (S)ITG with\
-            alignments (-a) and parses (-p) or reorder sentences according\
-            to their itg-parses (-r).')
-
+    
     output_file_name = args.output
     inv_extension = '-%s' % args.inv_extension
     if args.reordering:
         reordering_file_name = args.reordering
         reorder(reordering_file_name, output_file_name, inv_extension, '<s>','</s>')
-    else:
+    elif args.alignments and args.parses:
         alignments_file_name = args.alignments
         parses_file_name = args.parses
         stochastic = args.stochastic
@@ -385,6 +385,15 @@ def main():
                 inv_extension)
 
         grammar_to_bitpar_files(output_file_name, binary, unary)
+    elif args.sentences_to_bitpar:
+        file_name = args.sentences_to_bitpar
+        if args.max_length:
+            max_length = int(args.max_length)
+            sentences_to_bitpar(file_name, output_file_name, max_length)
+        else:
+            sentences_to_bitpar(file_name, output_file_name)
+    else:
+        arg_parser.error('Invalid arguments.')
 
 def hamming_distance(translated_phrase, true_phrase):
     #computes the hamming distance between two phrases.
@@ -453,6 +462,20 @@ def best_reordering(bitpar_probs, srilm_probs, reordered_indexes,
     bpp_file.close()
     srilm_file.close()
     ri_file.close()
+    out.close()
+
+def sentences_to_bitpar(file_name, out_name, max_length = float('inf')):
+    """Bitpar requires each word in a sentence to be on a separate line and 
+    sentences must be seperated by a newline. A normal file with sentences is
+    converted to the bitpar format. Words are split on whitespace."""
+    sentences = open(file_name, 'r')
+    out = open(out_name, 'w')
+    for line in sentences:
+        words = line.strip().split()
+        if len(words) <= max_length:
+            out.write('%s\n\n' % '\n'.join(words))
+
+    sentences.close()
     out.close()
 
 def test():
