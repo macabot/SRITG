@@ -470,11 +470,16 @@ def sentences_to_bitpar(file_name, out_name, max_length = float('inf')):
     converted to the bitpar format. Words are split on whitespace."""
     sentences = open(file_name, 'r')
     out = open(out_name, 'w')
+    converted = 0
+    total = 0
     for line in sentences:
+        total += 1
         words = line.strip().split()
         if len(words) <= max_length:
+            converted += 1
             out.write('%s\n\n' % '\n'.join(words))
 
+    print 'converted %s of %s sentences' % (converted, total)
     sentences.close()
     out.close()
 
