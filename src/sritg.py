@@ -386,6 +386,12 @@ def main():
     arg_parser.add_argument("-i", "--inv_extension", default="I",
         help="Extension of a node marking it as the lhs of an inverted rule. \
         Node will be marked as <node>-<extension>")
+    arg_parser.add_argument("-rp", "--reordering_prob",
+        help="")
+    arg_parser.add_argument("-lmp", "--language_model_prob",
+        help="")
+    arg_parser.add_argument("-ri", "--reordered_indexes",
+        help="")
     
     args = arg_parser.parse_args()
     
@@ -413,6 +419,8 @@ def main():
             sentences_to_bitpar(file_name, output_file_name, max_length)
         else:
             sentences_to_bitpar(file_name, output_file_name)
+    elif args.reordering_prob and args.language_model_prob and args.reordered_indexes:
+	best_reordering(args.reordering_prob, args.language_model_prob, args.reordered_indexes, output_file_name)
     else:
         arg_parser.error('Invalid arguments.')
 
@@ -469,10 +477,10 @@ def best_reordering(bitpar_probs, srilm_probs, reordered_indexes,
     best_ri = None
     best_prob = float('-inf')
     for ri in ri_file:
-        bpp = float(bpp_file.next().strip())
         ri = ri.strip()
         if len(ri):
-            prob = bpp + float(srilm_file.next().strip)
+            bpp = float(bpp_file.next().strip())
+            prob = bpp + float(srilm_file.next().strip())
             if prob > best_prob:
                 best_ri = ri
                 best_prob = prob
@@ -480,6 +488,9 @@ def best_reordering(bitpar_probs, srilm_probs, reordered_indexes,
             out.write('%s\n' % best_ri)
             best_ri = None
             best_prob = float('-inf')
+            bpp_file.next()
+    if best_ri:
+        out.write('%s\n' % best_ri)
     bpp_file.close()
     srilm_file.close()
     ri_file.close()
