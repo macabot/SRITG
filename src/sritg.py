@@ -93,12 +93,13 @@ def extract_itg(alignments_file_name, parses_file_name, inv_extension):
                 reordered_indexes, inv_extension)
         except:
             error_log = open('error.log', 'a')
-            error_log.write('%s\n' % time.asctime())
+            error_log.write('%s -- in extract_itg/3\n' % time.asctime())
             error_log.write('line: %s\n' % i)
             error_log.write('%s\n' % l1_parse.strip())
             error_log.write('%s\n' % reordered_indexes)
+            error_log.write('\n')
             error_log.close()
-            print 'Error in parse_forest/3. See error.log'
+            print 'Error in extract_itg/3. See error.log'
             raise
 
         binary_rules, unary_rules = extract_rules(parse_forest, 
@@ -317,24 +318,44 @@ def reorder(parses_file_name, prefix, inv_extension, start, stop):
     start -- start symbol for reordered sentence
     stop -- stop symbol for reordered sentence"""
     parses_file = open(parses_file_name, 'r')
+    num_lines = number_of_lines(parses_file_name)
     # output files
     probs_out = open('%s.probs' % prefix, 'w')
     sentences_out = open('%s.rs' % prefix, 'w')
     indexes_out = open('%s.ri' % prefix, 'w')
-    for line in parses_file:
+    for i, line in enumerate(parses_file):
+        if i % (num_lines/100) is 0:
+            sys.stdout.write('\r%d%%' % (i*100/num_lines,))
+            sys.stdout.flush()
+
         line = line.strip()
         if line == '': # new line between n-best lists
             probs_out.write('\n')
             sentences_out.write('\n')
             indexes_out.write('\n')
+        elif 'No parse for:' in line: # if no parse is found apply no reordering
+            probs_out.write('0\n') # give it a log prob of 0
+            sentence = line[15:len(line)-1]
+            sentences_out.write('%s\n' % sentence)
+            indexes_out.write('%s\n' % range(len(sentence.split())))
         elif 'logvitprob=' in line: # log viterbi probability
             probs_out.write('%s\n' % line[11:])
         else: # viterbi parse
-            tree = Tree(line)
-            reordered_sentence, reordered_indexes, _ = tree_to_reordered(tree, 
-                inv_extension)
-            sentences_out.write('%s %s %s\n' % (start, reordered_sentence, stop))
-            indexes_out.write('%s\n' % reordered_indexes)
+            try: # TODO remove try/catch
+                tree = Tree(line)
+                reordered_sentence, reordered_indexes, _ = tree_to_reordered(tree, 
+                    inv_extension)
+                sentences_out.write('%s %s %s\n' % (start, reordered_sentence, stop))
+                indexes_out.write('%s\n' % reordered_indexes)
+            except:
+                error_log = open('error.log', 'a')
+                error_log.write('%s -- in reorder/5\n' % time.asctime())
+                error_log.write('line: %s\n' % i)
+                error_log.write('%s\n' % line)
+                error_log.write('\n')
+                error_log.close()
+                print 'Error in reorder/5. See error.log'
+                raise
 
     parses_file.close()
     probs_out.close()
