@@ -387,11 +387,14 @@ def main():
         help="Extension of a node marking it as the lhs of an inverted rule. \
         Node will be marked as <node>-<extension>")
     arg_parser.add_argument("-rp", "--reordering_prob",
-        help="")
+        help="File containing the n-best reordering probabilities. Each n-pair \
+            is separated by a newline.")
     arg_parser.add_argument("-lmp", "--language_model_prob",
-        help="")
+        help="File containing the n-best language model probabilities. There is \
+            no separation between the n-pairs.")
     arg_parser.add_argument("-ri", "--reordered_indexes",
-        help="")
+        help="File containing the n-best reordered indexes. Each n-pair is \
+            separated by a newline.")
     
     args = arg_parser.parse_args()
     
@@ -485,12 +488,14 @@ def best_reordering(bitpar_probs, srilm_probs, reordered_indexes,
                 best_ri = ri
                 best_prob = prob
         else:
-            out.write('%s\n' % best_ri)
+            out.write('%s\n' % ' '.join(best_ri))
             best_ri = None
             best_prob = float('-inf')
             bpp_file.next()
+
     if best_ri:
-        out.write('%s\n' % best_ri)
+        out.write('%s\n' % ' '.join(best_ri))
+
     bpp_file.close()
     srilm_file.close()
     ri_file.close()
