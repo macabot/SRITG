@@ -339,7 +339,7 @@ def reorder(parses_file_name, prefix, inv_extension, start, stop):
             probs_out.write('0\n') # give it a log prob of 0
             sentence = line[15:len(line)-1]
             sentences_out.write('%s\n' % sentence)
-            indexes_out.write('%s\n' % range(len(sentence.split())))
+            indexes_out.write('%s\n' % ' '.join(range(len(sentence.split()))))
         elif 'logvitprob=' in line: # log viterbi probability
             probs_out.write('%s\n' % line[11:])
         else: # viterbi parse
@@ -353,7 +353,7 @@ def reorder(parses_file_name, prefix, inv_extension, start, stop):
                 total_indexes += 1
                 # write to file
                 sentences_out.write('%s %s %s\n' % (start, reordered_sentence, stop))
-                indexes_out.write('%s\n' % reordered_indexes)
+                indexes_out.write('%s\n' % ' '.join(reordered_indexes))
             except:
                 error_log = open('error.log', 'a')
                 error_log.write('%s -- in reorder/5\n' % time.asctime())
@@ -431,13 +431,13 @@ def best_reordering(bitpar_probs, srilm_probs, reordered_indexes,
                 best_ri = ri
                 best_prob = prob
         else:
-            out.write('%s\n' % ' '.join(best_ri))
+            out.write('%s\n' % best_ri)
             best_ri = None
             best_prob = float('-inf')
             bpp_file.next()
 
     if best_ri:
-        out.write('%s\n' % ' '.join(best_ri))
+        out.write('%s\n' % best_ri)
 
     bpp_file.close()
     srilm_file.close()
