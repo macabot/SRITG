@@ -323,6 +323,8 @@ def reorder(parses_file_name, prefix, inv_extension, start, stop):
     probs_out = open('%s.probs' % prefix, 'w')
     sentences_out = open('%s.rs' % prefix, 'w')
     indexes_out = open('%s.ri' % prefix, 'w')
+    num_reordered = 0
+    total_indexes = 0
     for i, line in enumerate(parses_file):
         if i % (num_lines/100) is 0:
             sys.stdout.write('\r%d%%' % (i*100/num_lines,))
@@ -345,6 +347,11 @@ def reorder(parses_file_name, prefix, inv_extension, start, stop):
                 tree = Tree(line)
                 reordered_sentence, reordered_indexes, _ = tree_to_reordered(tree, 
                     inv_extension)
+                if reordered_indexes == range(len(reordered_indexes)):
+                    num_reordered += 1
+                    
+                total_indexes += 1
+                # write to file
                 sentences_out.write('%s %s %s\n' % (start, reordered_sentence, stop))
                 indexes_out.write('%s\n' % reordered_indexes)
             except:
@@ -357,6 +364,7 @@ def reorder(parses_file_name, prefix, inv_extension, start, stop):
                 print 'Error in reorder/5. See error.log'
                 raise
 
+    print 'reordered %s of %s indexes' % (num_reordered, total_indexes)
     parses_file.close()
     probs_out.close()
     sentences_out.close()
