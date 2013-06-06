@@ -371,10 +371,8 @@ def reorder(parses_file_name, prefix, inv_extension, start, stop):
     indexes_out.close()
 
 def hamming_distance(translated_phrase, true_phrase):
-    #computes the hamming distance between two phrases.
-    #assumes that the translation has the same length as the true phrase
-    translated_phrase = str.split(translated_phrase, ' ')
-    true_phrase = str.split(true_phrase, ' ')
+    """Computes the hamming distance between two phrases. Assumes that the 
+    translation has the same length as the true phrase."""
     total = 0.0
     #maybe could be neater with itertools?
     for i in xrange(len(translated_phrase)):
@@ -382,11 +380,28 @@ def hamming_distance(translated_phrase, true_phrase):
             total += 1
     return 1 - total/len(translated_phrase)
 
+def average_hamming_distance(best_file_name, true_file_name):
+    best_file = open(best_file_name, 'r')
+    true_file = open(true_file_name, 'r')
+    hamming_distance_total = 0
+    num_lines = 0
+    for i, best_indexes in enumerate(best_file):
+        num_lines += 1
+        best_indexes = best_indexes.strip().split()
+        true_indexes = true_file.next().strip().split()
+        if len(best_indexes) == len(true_indexes):
+            hamming_distance_total += hamming_distance(best_indexes, true_indexes)
+        else:
+            raise ValueError("Line %s: Translation and true phrase must have \
+            the same length." % i)
+
+    best_file.close()
+    true_file.close()
+    return hamming_distance_total / float(num_lines)
+
 def kendalls_tau(translated_phrase, true_phrase):
-    #computes kendall's tau between two phrases.
-    #assumes that the translation has the same length as the true phrase
-    translated_phrase = str.split(translated_phrase, ' ')
-    true_phrase = str.split(true_phrase, ' ')
+    """Computes kendall's tau between two phrases. Assumes that the translation 
+    has the same length as the true phrase."""
     total = 0.0
     #maybe could be neater with itertools?
     for i in xrange(len(translated_phrase)):
@@ -395,8 +410,27 @@ def kendalls_tau(translated_phrase, true_phrase):
             if i < j and true_phrase.index(translated_phrase[i]) > \
                     true_phrase.index(translated_phrase[j]):
                 total += 1
-    Z = (len(translated_phrase) ** 2 - len(translated_phrase))/2
+    Z = (len(translated_phrase) ** 2 - len(translated_phrase))/2.0
     return 1 - total/Z
+
+def average_kendalls_tau(best_file_name, true_file_name):
+    best_file = open(best_file_name, 'r')
+    true_file = open(true_file_name, 'r')
+    kendalls_tau_total = 0
+    num_lines = 0
+    for i, best_indexes in enumerate(best_file):
+        num_lines += 1
+        best_indexes = best_indexes.strip().split()
+        true_indexes = true_file.next().strip().split()
+        if len(best_indexes) == len(true_indexes):
+            kendalls_tau_total += kendalls_tau(best_indexes, true_indexes)
+        else:
+            raise ValueError("Line %s: Translation and true phrase must have \
+            the same length." % i)
+
+    best_file.close()
+    true_file.close()
+    return kendalls_tau_total / float(num_lines)
 
 def number_of_lines(file_name):
     """Counts the number of lines in a file
@@ -496,6 +530,12 @@ def main():
     arg_parser.add_argument("-ri", "--reordered_indexes",
         help="File containing the n-best reordered indexes. Each n-pair is \
             separated by a newline.")
+    arg_parser.add_argument("-hd", "--hamming_distance", nargs=2,
+        help="Returns average Hamming distance. Expects your reordered \
+            indexes and gold reordered indexes.")
+    arg_parser.add_argument("-kt", "--kendalls_tau", nargs=2,
+        help="Returns average Kendall's distance. Expects your reordered \
+            indexes and gold reordered indexes.")
     
     args = arg_parser.parse_args()
     
@@ -527,6 +567,18 @@ def main():
             args.reordered_indexes:
         best_reordering(args.reordering_prob, args.language_model_prob, 
             args.reordered_indexes, output_file_name)
+    elif args.hamming_distance:
+        average = average_hamming_distance(args.hamming_distance[0], 
+            args.hamming_distance[1])
+        out = open(output_file_name, 'w')
+        out.write('Average Hamming Distance: %s\n' % average)
+        out.close()
+    elif args.kendalls_tau:
+        average = average_kendalls_tau(args.kendalls_tau[0], 
+            args.kendalls_tau[1])
+        out = open(output_file_name, 'w')
+        out.write("Average Kendall's Tau: %s\n" % average)
+        out.close()
     else:
         arg_parser.error('Invalid arguments.')
 
