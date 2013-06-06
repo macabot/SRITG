@@ -362,71 +362,6 @@ def reorder(parses_file_name, prefix, inv_extension, start, stop):
     sentences_out.close()
     indexes_out.close()
 
-def main():
-    """Read command line arguments and perform corresponding action"""
-    arg_parser = argparse.ArgumentParser(description='Create an (S)ITG or \
-        reorder sentences.')
-    arg_parser.add_argument("-a", "--alignments",
-        help="File containing alignments.")
-    arg_parser.add_argument("-p", "--parses",
-        help="File containing sentence parses.")
-    arg_parser.add_argument("-s", "--stochastic", action='store_true',
-        help="Calculate the probabilities of the itg rules.")
-    arg_parser.add_argument("-r", "--reordering",
-        help="File containing sentence parses that need to be reordered.")
-    arg_parser.add_argument("-s2b", "--sentences_to_bitpar",
-        help="File containing sentences which will be formatted for bitpar, i.e.\
-            each word on a separate line and sentences separated by a newline")
-    arg_parser.add_argument("-ml", "--max_length",
-        help="Maximum number of words in a sentence.")
-    arg_parser.add_argument("-o", "--output", required=True,
-        help="When constructing (S)ITG: Prefix of file names for Bitpar output.\
-            When reordering: Prefix of file names of reordered sentences and \
-            indexes.")
-    arg_parser.add_argument("-i", "--inv_extension", default="I",
-        help="Extension of a node marking it as the lhs of an inverted rule. \
-        Node will be marked as <node>-<extension>")
-    arg_parser.add_argument("-rp", "--reordering_prob",
-        help="File containing the n-best reordering probabilities. Each n-pair \
-            is separated by a newline.")
-    arg_parser.add_argument("-lmp", "--language_model_prob",
-        help="File containing the n-best language model probabilities. There is \
-            no separation between the n-pairs.")
-    arg_parser.add_argument("-ri", "--reordered_indexes",
-        help="File containing the n-best reordered indexes. Each n-pair is \
-            separated by a newline.")
-    
-    args = arg_parser.parse_args()
-    
-    output_file_name = args.output
-    inv_extension = '-%s' % args.inv_extension
-    if args.reordering:
-        reordering_file_name = args.reordering
-        reorder(reordering_file_name, output_file_name, inv_extension, '<s>','</s>')
-    elif args.alignments and args.parses:
-        alignments_file_name = args.alignments
-        parses_file_name = args.parses
-        stochastic = args.stochastic
-        if stochastic:
-            binary, unary = extract_sitg(alignments_file_name, parses_file_name,
-                inv_extension)
-        else:
-            binary, unary = extract_itg(alignments_file_name, parses_file_name,
-                inv_extension)
-
-        grammar_to_bitpar_files(output_file_name, binary, unary)
-    elif args.sentences_to_bitpar:
-        file_name = args.sentences_to_bitpar
-        if args.max_length:
-            max_length = int(args.max_length)
-            sentences_to_bitpar(file_name, output_file_name, max_length)
-        else:
-            sentences_to_bitpar(file_name, output_file_name)
-    elif args.reordering_prob and args.language_model_prob and args.reordered_indexes:
-	best_reordering(args.reordering_prob, args.language_model_prob, args.reordered_indexes, output_file_name)
-    else:
-        arg_parser.error('Invalid arguments.')
-
 def hamming_distance(translated_phrase, true_phrase):
     #computes the hamming distance between two phrases.
     #assumes that the translation has the same length as the true phrase
@@ -520,6 +455,73 @@ def sentences_to_bitpar(file_name, out_name, max_length = float('inf')):
     sentences.close()
     out.close()
 
+def main():
+    """Read command line arguments and perform corresponding action"""
+    arg_parser = argparse.ArgumentParser(description='Create an (S)ITG or \
+        reorder sentences.')
+    arg_parser.add_argument("-a", "--alignments",
+        help="File containing alignments.")
+    arg_parser.add_argument("-p", "--parses",
+        help="File containing sentence parses.")
+    arg_parser.add_argument("-s", "--stochastic", action='store_true',
+        help="Calculate the probabilities of the itg rules.")
+    arg_parser.add_argument("-r", "--reordering",
+        help="File containing sentence parses that need to be reordered.")
+    arg_parser.add_argument("-s2b", "--sentences_to_bitpar",
+        help="File containing sentences which will be formatted for bitpar, i.e.\
+            each word on a separate line and sentences separated by a newline")
+    arg_parser.add_argument("-ml", "--max_length",
+        help="Maximum number of words in a sentence.")
+    arg_parser.add_argument("-o", "--output", required=True,
+        help="When constructing (S)ITG: Prefix of file names for Bitpar output.\
+            When reordering: Prefix of file names of reordered sentences and \
+            indexes.")
+    arg_parser.add_argument("-i", "--inv_extension", default="I",
+        help="Extension of a node marking it as the lhs of an inverted rule. \
+        Node will be marked as <node>-<extension>")
+    arg_parser.add_argument("-rp", "--reordering_prob",
+        help="File containing the n-best reordering probabilities. Each n-pair \
+            is separated by a newline.")
+    arg_parser.add_argument("-lmp", "--language_model_prob",
+        help="File containing the n-best language model probabilities. There is \
+            no separation between the n-pairs.")
+    arg_parser.add_argument("-ri", "--reordered_indexes",
+        help="File containing the n-best reordered indexes. Each n-pair is \
+            separated by a newline.")
+    
+    args = arg_parser.parse_args()
+    
+    output_file_name = args.output
+    inv_extension = '-%s' % args.inv_extension
+    if args.reordering:
+        reordering_file_name = args.reordering
+        reorder(reordering_file_name, output_file_name, inv_extension, '<s>','</s>')
+    elif args.alignments and args.parses:
+        alignments_file_name = args.alignments
+        parses_file_name = args.parses
+        stochastic = args.stochastic
+        if stochastic:
+            binary, unary = extract_sitg(alignments_file_name, parses_file_name,
+                inv_extension)
+        else:
+            binary, unary = extract_itg(alignments_file_name, parses_file_name,
+                inv_extension)
+
+        grammar_to_bitpar_files(output_file_name, binary, unary)
+    elif args.sentences_to_bitpar:
+        file_name = args.sentences_to_bitpar
+        if args.max_length:
+            max_length = int(args.max_length)
+            sentences_to_bitpar(file_name, output_file_name, max_length)
+        else:
+            sentences_to_bitpar(file_name, output_file_name)
+    elif args.reordering_prob and args.language_model_prob and \
+            args.reordered_indexes:
+        best_reordering(args.reordering_prob, args.language_model_prob, 
+            args.reordered_indexes, output_file_name)
+    else:
+        arg_parser.error('Invalid arguments.')
+
 def test():
     """Testing goes here."""
     '''parse_tree = Tree("( (S (S (SBAR (IN as) (S (NP (PRP we)) (VP (VBP see) (NP (PRP it))))) (, ,) (NP (EX there)) (VP (MD will) (VP (VB be) (NP (NP (DT a) (NN dovetailing)) (PP (IN of) (NP (NP (NP (CD three) (NNS mechanisms)) (PP (IN in) (NP (DT the) (NN future)))) (: :) (NP (NP (NP (DT a) (NN system)) (PP (IN of) (NP (JJ independent) (JJ prior) (NN approval))) (PP (IN by) (NP (DT the) (JJ financial) (NN controller)))) (, ,) (NP (NN concomitant)) (CC and) (NP (NP (JJ follow-up) (NN control)) (PP (IN by) (NP (NP (DT the) (JJ internal) (NN audit) (NN service)) (PRN (: -) (VP (ADVP (RB also)) (VBN known) (PP (IN as) (NP (DT the) (NN audit) (NN service)))) (: -)) (SBAR (WHNP (WDT which)) (S (VP (VBZ has) (ADVP (RB yet)) (S (VP (TO to) (VP (VB be) (VP (VBN set) (PRT (RP up))))))))))))))))))) (, ,) (CC and) (S (ADVP (RB finally)) (, ,) (NP (EX there)) (VP (MD will) (VP (VB be) (NP (NP (DT the) (JJ targeted) (NN tracking-down)) (PP (IN of) (NP (NP (NNS irregularities)) (PP (IN by) (NP (NP (NNP OLAF)) (, ,) (NP (DT the) (JJ new) (JJ anti-fraud) (NN office)))))))))) (. .)))")
@@ -533,6 +535,7 @@ def test():
     print reordered_sentence
     print reordered_indexes
     print index
+
 
 if __name__ == '__main__':
     main()
