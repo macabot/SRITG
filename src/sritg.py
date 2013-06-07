@@ -373,6 +373,9 @@ def reorder(parses_file_name, prefix, inv_extension, start, stop):
 def hamming_distance(translated_phrase, true_phrase):
     """Computes the hamming distance between two phrases. Assumes that the 
     translation has the same length as the true phrase."""
+    if translated_phrase == true_phrase:
+        return 1
+
     total = 0.0
     #maybe could be neater with itertools?
     for i in xrange(len(translated_phrase)):
@@ -381,6 +384,7 @@ def hamming_distance(translated_phrase, true_phrase):
     return 1 - total/len(translated_phrase)
 
 def average_hamming_distance(best_file_name, true_file_name):
+    """Calculate the average hamming distance."""
     best_file = open(best_file_name, 'r')
     true_file = open(true_file_name, 'r')
     hamming_distance_total = 0
@@ -402,6 +406,9 @@ def average_hamming_distance(best_file_name, true_file_name):
 def kendalls_tau(translated_phrase, true_phrase):
     """Computes kendall's tau between two phrases. Assumes that the translation 
     has the same length as the true phrase."""
+    if translated_phrase == true_phrase:
+        return 1
+
     total = 0.0
     #maybe could be neater with itertools?
     for i in xrange(len(translated_phrase)):
@@ -414,6 +421,7 @@ def kendalls_tau(translated_phrase, true_phrase):
     return 1 - total/Z
 
 def average_kendalls_tau(best_file_name, true_file_name):
+    """Calculate the average Kendall's tau distance."""
     best_file = open(best_file_name, 'r')
     true_file = open(true_file_name, 'r')
     kendalls_tau_total = 0
@@ -450,6 +458,9 @@ def number_of_lines(file_name):
 
 def best_reordering(bitpar_probs, srilm_probs, reordered_indexes, 
         output_file_name):
+    """For each set of n-best reorderings, find the one that maximizes 
+    p_r(s') * p_lm(s'), where s' is a reordered sentence, p_r(s') is its 
+    reordered probability and p_lm(s') is its language model probability."""
     bpp_file = open(bitpar_probs, 'r')
     srilm_file = open(srilm_probs, 'r')
     ri_file = open(reordered_indexes, 'r')
@@ -497,6 +508,19 @@ def sentences_to_bitpar(file_name, out_name, max_length = float('inf')):
     sentences.close()
     out.close()
 
+def no_reordering(file_name, out_name):
+    """Reads a file containing reordered indexes and returns a file with 
+    ordered indexes."""
+    doc = open(file_name, 'r')
+    out = open(out_name, 'w')
+    for line in doc:
+        words = line.strip().split()
+        no_reordering = (str(index) for index in xrange(len(words)))
+        out.write('%s\n' % ' '.join(no_reordering))
+        
+    doc.close()
+    out.close()
+
 def main():
     """Read command line arguments and perform corresponding action"""
     arg_parser = argparse.ArgumentParser(description='Create an (S)ITG or \
@@ -536,6 +560,9 @@ def main():
     arg_parser.add_argument("-kt", "--kendalls_tau", nargs=2,
         help="Returns average Kendall's distance. Expects your reordered \
             indexes and gold reordered indexes.")
+    arg_parser.add_argument("-nr", "--no_reordering",
+        help="Expects file with reordered indexes. Returns file ordered \
+            indexes")
     
     args = arg_parser.parse_args()
     
@@ -579,6 +606,8 @@ def main():
         out = open(output_file_name, 'w')
         out.write("Average Kendall's Tau: %s\n" % average)
         out.close()
+    elif args.no_reordering:
+        no_reordering(args.no_reordering, output_file_name)
     else:
         arg_parser.error('Invalid arguments.')
 
